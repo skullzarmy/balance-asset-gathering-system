@@ -1,4 +1,4 @@
-# 🎒 BAGS
+# 💰 BAGS
 
 **Balance & Asset Gathering System**
 

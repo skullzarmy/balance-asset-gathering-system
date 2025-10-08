@@ -1,4 +1,4 @@
-# Contributing to BAGS 🎒
+# Contributing to BAGS 💰
 
 First off, thanks for taking the time to contribute! This is a FAFO ~~lab~~ joint, so don't be afraid to experiment and break things.
 
@@ -201,6 +201,6 @@ Contributors will be recognized in the README. Significant contributions may ear
 
 ---
 
-**Remember**: This is a FAFO joint. Experiment, break things, learn, and have fun! 🎒
+**Remember**: This is a FAFO joint. Experiment, break things, learn, and have fun! 💰
 
 Thanks for contributing! 🙏
