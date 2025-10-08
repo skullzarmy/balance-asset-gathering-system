@@ -501,7 +501,7 @@ export function WalletsTable({
                                                                 {wallet.tezDomain}
                                                             </div>
                                                         )}
-                                                        {wallet.type === "tezos" && !wallet.tezDomain && (
+                                                        {wallet.type === "tezos" && (
                                                             <div className="text-xs text-muted-foreground font-mono">
                                                                 {wallet.address.slice(0, 10)}...
                                                                 {wallet.address.slice(-6)}

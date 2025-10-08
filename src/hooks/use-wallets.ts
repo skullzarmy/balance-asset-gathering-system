@@ -33,87 +33,100 @@ export function useWallets() {
                 const walletsNeedingRefresh = storedWallets.filter((w) => {
                     const isStale = !w.lastUpdated || now - w.lastUpdated > STALE_THRESHOLD;
                     const missingTokens = !w.tokens || w.tokens.length === 0;
-                    return isStale || missingTokens;
+                    const missingDomain = w.type === "tezos" && !w.tezDomain;
+                    const missingBakerName =
+                        w.type === "tezos" &&
+                        w.delegationDetails &&
+                        (!w.delegationDetails.bakerName || w.delegationDetails.bakerName.startsWith("tz"));
+                    const missingDelegationDetails = w.type === "tezos" && !w.delegationDetails;
+                    return isStale || missingTokens || missingDomain || missingBakerName || missingDelegationDetails;
                 });
 
                 if (walletsNeedingRefresh.length === 0) {
                     return;
                 }
 
-                // Refresh wallets that are stale or missing tokens
-                walletsNeedingRefresh.forEach(async (wallet) => {
-                    try {
-                        if (wallet.type === "tezos") {
-                            const [breakdown, delegation, tokens, prices] = await Promise.all([
-                                fetchTezosBalanceBreakdown(wallet.address).catch(() => ({
-                                    total: 0,
-                                    spendable: 0,
-                                    staked: 0,
-                                    unstaked: 0,
-                                })),
-                                fetchDelegationStatus(wallet.address).catch(() => ({
-                                    status: "undelegated" as const,
-                                })),
-                                fetchTezosTokens(wallet.address).catch(() => []),
-                                getAllPrices("XTZ").catch(() => ({
-                                    usd: null,
-                                    eur: null,
-                                    timestamp: Date.now(),
-                                })),
-                            ]);
+                // Refresh wallets in parallel
+                Promise.all(
+                    walletsNeedingRefresh.map(async (wallet) => {
+                        try {
+                            if (wallet.type === "tezos") {
+                                const [breakdown, delegation, tokens, delegationDetails, prices, tezDomain] =
+                                    await Promise.all([
+                                        fetchTezosBalanceBreakdown(wallet.address).catch(() => ({
+                                            total: 0,
+                                            spendable: 0,
+                                            staked: 0,
+                                            unstaked: 0,
+                                        })),
+                                        fetchDelegationStatus(wallet.address).catch(() => ({
+                                            status: "undelegated" as const,
+                                        })),
+                                        fetchTezosTokens(wallet.address).catch(() => []),
+                                        fetchDelegationDetails(wallet.address).catch(() => null),
+                                        getAllPrices("XTZ").catch(() => ({
+                                            usd: null,
+                                            eur: null,
+                                            timestamp: Date.now(),
+                                        })),
+                                        fetchTezDomain(wallet.address).catch(() => null),
+                                    ]);
 
-                            const usdValue = prices.usd ? breakdown.total * prices.usd : undefined;
-                            const eurValue = prices.eur ? breakdown.total * prices.eur : undefined;
+                                const usdValue = prices.usd ? breakdown.total * prices.usd : undefined;
+                                const eurValue = prices.eur ? breakdown.total * prices.eur : undefined;
 
-                            const updated = {
-                                ...wallet,
-                                balance: breakdown.total,
-                                spendableBalance: breakdown.spendable,
-                                stakedBalance: breakdown.staked,
-                                unstakedBalance: breakdown.unstaked,
-                                usdValue,
-                                eurValue,
-                                lastUpdated: prices.timestamp,
-                                status: delegation.status,
-                                delegatedTo: "delegatedTo" in delegation ? delegation.delegatedTo : undefined,
-                                stakedAmount: "stakedAmount" in delegation ? delegation.stakedAmount : undefined,
-                                tokens,
-                            };
+                                const updated = {
+                                    ...wallet,
+                                    balance: breakdown.total,
+                                    spendableBalance: breakdown.spendable,
+                                    stakedBalance: breakdown.staked,
+                                    unstakedBalance: breakdown.unstaked,
+                                    usdValue,
+                                    eurValue,
+                                    lastUpdated: prices.timestamp,
+                                    tezDomain: tezDomain || undefined,
+                                    status: delegation.status,
+                                    delegatedTo: "delegatedTo" in delegation ? delegation.delegatedTo : undefined,
+                                    stakedAmount: "stakedAmount" in delegation ? delegation.stakedAmount : undefined,
+                                    tokens,
+                                    delegationDetails: delegationDetails || undefined,
+                                };
 
-                            // Update storage
-                            walletStorage.updateWallet(wallet.id, updated);
+                                // Update storage
+                                walletStorage.updateWallet(wallet.id, updated);
 
-                            // Update state progressively
-                            setWallets((prev) => prev.map((w) => (w.id === wallet.id ? updated : w)));
-                        } else {
-                            const [balance, tokens, prices] = await Promise.all([
-                                fetchEtherlinkBalance(wallet.address).catch(() => 0),
-                                fetchEtherlinkTokens(wallet.address).catch(() => []),
-                                getAllPrices("XTZ").catch(() => ({ usd: null, eur: null, timestamp: Date.now() })),
-                            ]);
+                                // Update state progressively
+                                setWallets((prev) => prev.map((w) => (w.id === wallet.id ? updated : w)));
+                            } else {
+                                const [balance, tokens, prices] = await Promise.all([
+                                    fetchEtherlinkBalance(wallet.address).catch(() => 0),
+                                    fetchEtherlinkTokens(wallet.address).catch(() => []),
+                                    getAllPrices("XTZ").catch(() => ({ usd: null, eur: null, timestamp: Date.now() })),
+                                ]);
 
-                            const usdValue = prices.usd ? balance * prices.usd : undefined;
-                            const eurValue = prices.eur ? balance * prices.eur : undefined;
+                                const usdValue = prices.usd ? balance * prices.usd : undefined;
+                                const eurValue = prices.eur ? balance * prices.eur : undefined;
 
-                            const updated = {
-                                ...wallet,
-                                balance,
-                                usdValue,
-                                eurValue,
-                                lastUpdated: prices.timestamp,
-                                tokens,
-                            };
+                                const updated = {
+                                    ...wallet,
+                                    balance,
+                                    usdValue,
+                                    eurValue,
+                                    lastUpdated: prices.timestamp,
+                                    tokens,
+                                };
 
-                            // Update storage
-                            walletStorage.updateWallet(wallet.id, updated);
+                                // Update storage
+                                walletStorage.updateWallet(wallet.id, updated);
 
-                            // Update state progressively
-                            setWallets((prev) => prev.map((w) => (w.id === wallet.id ? updated : w)));
+                                // Update state progressively
+                                setWallets((prev) => prev.map((w) => (w.id === wallet.id ? updated : w)));
+                            }
+                        } catch {
+                            // Silent fail for individual wallet refresh
                         }
-                    } catch (error) {
-                        // Silent fail for individual wallet refresh
-                    }
-                });
+                    })
+                );
             } catch (error) {
                 console.error("[useWallets] Error loading wallets:", error);
                 setWallets([]);
@@ -240,7 +253,7 @@ export function useWallets() {
                     usdValue,
                     eurValue,
                     lastUpdated: prices.timestamp,
-                    tezDomain: tezDomain || wallet.tezDomain,
+                    tezDomain: tezDomain || undefined,
                     status: delegation.status,
                     delegatedTo: "delegatedTo" in delegation ? delegation.delegatedTo : undefined,
                     stakedAmount: "stakedAmount" in delegation ? delegation.stakedAmount : undefined,
@@ -270,10 +283,21 @@ export function useWallets() {
         }
     };
 
-    const updateWalletLabel = (id: string, label: string) => {
+    const updateWalletLabel = async (id: string, label: string) => {
         try {
+            const wallet = wallets.find((w) => w.id === id);
+            if (!wallet) return;
+
+            // Update label in storage and state first
             walletStorage.updateWallet(id, { label });
             setWallets(wallets.map((w) => (w.id === id ? { ...w, label } : w)));
+
+            // Also refresh tezDomain if it's a Tezos wallet
+            if (wallet.type === "tezos") {
+                const tezDomain = await fetchTezDomain(wallet.address).catch(() => null);
+                walletStorage.updateWallet(id, { tezDomain: tezDomain || undefined });
+                setWallets(wallets.map((w) => (w.id === id ? { ...w, tezDomain: tezDomain || undefined } : w)));
+            }
         } catch (error) {
             console.error("Error updating wallet label:", error);
         }

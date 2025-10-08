@@ -45,7 +45,9 @@ export async function fetchTezosBalanceBreakdown(address: string): Promise<Tezos
  */
 export async function fetchTezDomain(address: string): Promise<string | null> {
     try {
-        const response = await rateLimitedTzKTFetch(`https://api.tzkt.io/v1/domains?address=${address}&limit=1`);
+        const response = await rateLimitedTzKTFetch(
+            `https://api.tzkt.io/v1/domains?address=${address}&reverse=true&limit=1`
+        );
         if (!response.ok) return null;
 
         const data = await response.json();
@@ -172,13 +174,26 @@ export async function fetchDelegationDetails(address: string): Promise<Delegatio
         if (!accountData.delegate) return null;
 
         const bakerAddress = accountData.delegate.address;
+        const bakerAlias = accountData.delegate.alias || bakerAddress;
+
         const bakerResponse = await rateLimitedTzKTFetch(`https://api.tzkt.io/v1/delegates/${bakerAddress}`);
-        if (!bakerResponse.ok) return null;
+        if (!bakerResponse.ok) {
+            // If baker details fail, at least return what we have from account
+            return {
+                baker: bakerAddress,
+                bakerName: bakerAlias,
+                stakingBalance: 0,
+                stakingCapacity: 0,
+                freeSpace: 0,
+                fee: 0,
+                estimatedRoi: 0,
+            };
+        }
         const bakerData = await bakerResponse.json();
 
         return {
             baker: bakerAddress,
-            bakerName: bakerData.alias || bakerAddress,
+            bakerName: bakerData.alias || bakerAlias,
             stakingBalance: (bakerData.stakingBalance || 0) / 1_000_000,
             stakingCapacity: (bakerData.stakingCapacity || 0) / 1_000_000,
             freeSpace: (bakerData.freeSpace || 0) / 1_000_000,
