@@ -1,0 +1,57 @@
+# Netlify configuration for B.A.G.S.
+# https://docs.netlify.com/configure-builds/file-based-configuration/
+
+[build]
+  # Build command using Bun
+  command = "bun run build"
+  
+  # Output directory for Next.js
+  publish = ".next"
+  
+  # Use Bun as the package manager
+  [build.environment]
+    NODE_VERSION = "20"
+    # Install Bun in the build environment
+    BUN_INSTALL = "latest"
+
+# Install Bun before build
+[build.processing]
+  skip_processing = false
+
+# Next.js specific redirects and headers
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  force = false
+
+# Cache Next.js build artifacts
+[[headers]]
+  for = "/_next/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/_next/image*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Security headers
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+
+# Functions configuration (if using Netlify Functions later)
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+# Development settings
+[dev]
+  command = "bun dev"
+  port = 3000
+  publish = ".next"
