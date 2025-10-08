@@ -86,14 +86,29 @@ export async function fetchTezosTokens(address: string): Promise<TokenBalance[]>
                     // Must have decimals
                     if (metadata.decimals === undefined || metadata.decimals === null) return false;
 
-                    // Exclude NFTs by checking for isBooleanAmount (NFTs are typically amount 1)
-                    // or by checking symbol - NFTs usually don't have standard ticker symbols
-                    const hasSymbol = metadata.symbol && metadata.symbol.length > 0 && metadata.symbol.length < 10;
+                    // NFTs typically have decimals of 0
+                    if (metadata.decimals === 0) return false;
 
-                    // Exclude if has image/artifact URIs typical of NFTs but is missing proper fungible token symbol
-                    const hasNFTMedia = (metadata.artifactUri || metadata.displayUri) && !hasSymbol;
+                    // Must have a reasonable symbol (fungible tokens have short symbols)
+                    const hasValidSymbol =
+                        metadata.symbol && metadata.symbol.length > 0 && metadata.symbol.length <= 10;
+                    if (!hasValidSymbol) return false;
 
-                    return !hasNFTMedia;
+                    // Exclude if has NFT-specific metadata
+                    const hasNFTMetadata =
+                        metadata.artifactUri || metadata.displayUri || metadata.creators || metadata.formats;
+
+                    // Exclude if it has a tokenId (fungible tokens usually don't have individual token IDs)
+                    const hasTokenId = token.token.tokenId && token.token.tokenId !== "0";
+
+                    // If it has NFT metadata AND a tokenId, it's likely an NFT
+                    if (hasNFTMetadata && hasTokenId) return false;
+
+                    // Additional check: if balance is exactly 1 with 0 decimals, likely NFT
+                    const balanceValue = Number.parseFloat(token.balance);
+                    if (balanceValue === 1 && metadata.decimals === 0) return false;
+
+                    return true;
                 })
                 .map((token: any) => ({
                     symbol: token.token.metadata?.symbol || "UNKNOWN",
