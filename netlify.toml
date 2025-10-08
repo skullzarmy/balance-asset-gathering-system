@@ -3,16 +3,14 @@
 
 [build]
   # Build command using Bun
-  command = "bun run build"
+  command = "curl -fsSL https://bun.sh/install | bash && export BUN_INSTALL=\"$HOME/.bun\" && export PATH=\"$BUN_INSTALL/bin:$PATH\" && bun install && bun run build"
   
   # Output directory for Next.js
   publish = ".next"
   
-  # Use Bun as the package manager
+  # Environment variables
   [build.environment]
     NODE_VERSION = "20"
-    # Install Bun in the build environment
-    BUN_INSTALL = "latest"
 
 # Install Bun before build
 [build.processing]
