@@ -2,12 +2,31 @@
 
 import type { ChainBreakdown } from "@/lib/analytics";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { PieChart, Pie, Cell } from "recharts";
 import { Layers } from "lucide-react";
+import {
+    ChartContainer,
+    ChartTooltip,
+    ChartTooltipContent,
+    ChartLegend,
+    ChartLegendContent,
+    type ChartConfig,
+} from "@/components/ui/chart";
 
 interface ChainBreakdownChartProps {
     data: ChainBreakdown[];
 }
+
+const chartConfig = {
+    Tezos: {
+        label: "Tezos",
+        color: "hsl(var(--chart-1))",
+    },
+    Etherlink: {
+        label: "Etherlink",
+        color: "hsl(var(--chart-2))",
+    },
+} satisfies ChartConfig;
 
 const COLORS = {
     Tezos: "hsl(var(--chart-1))",
@@ -19,6 +38,7 @@ export function ChainBreakdownChart({ data }: ChainBreakdownChartProps) {
         name: item.chain,
         value: item.value,
         percentage: item.percentage,
+        fill: COLORS[item.chain as keyof typeof COLORS],
     }));
 
     return (
@@ -30,7 +50,7 @@ export function ChainBreakdownChart({ data }: ChainBreakdownChartProps) {
                 </CardTitle>
             </CardHeader>
             <CardContent>
-                <ResponsiveContainer width="100%" height={250} className="sm:h-[300px]">
+                <ChartContainer config={chartConfig} className="h-[300px] w-full">
                     <PieChart>
                         <Pie
                             data={chartData}
@@ -38,25 +58,17 @@ export function ChainBreakdownChart({ data }: ChainBreakdownChartProps) {
                             cy="50%"
                             labelLine={false}
                             label={({ name, percentage }) => `${name}: ${percentage.toFixed(1)}%`}
-                            outerRadius={60}
-                            fill="#8884d8"
+                            outerRadius={80}
                             dataKey="value"
                         >
-                            {chartData.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={COLORS[entry.name as keyof typeof COLORS]} />
+                            {chartData.map((entry) => (
+                                <Cell key={entry.name} fill={entry.fill} />
                             ))}
                         </Pie>
-                        <Tooltip
-                            contentStyle={{
-                                backgroundColor: "hsl(var(--background))",
-                                border: "1px solid hsl(var(--border))",
-                                borderRadius: "var(--radius)",
-                                color: "hsl(var(--foreground))",
-                            }}
-                        />
-                        <Legend />
+                        <ChartTooltip content={<ChartTooltipContent hideLabel />} />
+                        <ChartLegend content={<ChartLegendContent nameKey="name" />} />
                     </PieChart>
-                </ResponsiveContainer>
+                </ChartContainer>
 
                 <div className="mt-4 space-y-2">
                     {data.map((item) => (

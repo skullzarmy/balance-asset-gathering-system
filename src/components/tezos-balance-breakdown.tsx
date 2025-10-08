@@ -1,15 +1,38 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Legend } from "recharts";
 import { useState, useEffect } from "react";
 import { fetchTezosBalanceBreakdown, type TezosBalanceBreakdown } from "@/lib/blockchain/tezos";
 import type { TezosWallet } from "@/lib/types";
 import { Layers } from "lucide-react";
+import {
+    ChartContainer,
+    ChartTooltip,
+    ChartTooltipContent,
+    ChartLegend,
+    ChartLegendContent,
+    type ChartConfig,
+} from "@/components/ui/chart";
 
 interface TezosBalanceBreakdownChartProps {
     wallet: TezosWallet;
 }
+
+const chartConfig = {
+    spendable: {
+        label: "Spendable",
+        color: "hsl(var(--chart-1))",
+    },
+    staked: {
+        label: "Staked",
+        color: "hsl(var(--chart-2))",
+    },
+    unstaked: {
+        label: "Unstaked",
+        color: "hsl(var(--chart-3))",
+    },
+} satisfies ChartConfig;
 
 export function TezosBalanceBreakdownChart({ wallet }: TezosBalanceBreakdownChartProps) {
     const [breakdown, setBreakdown] = useState<TezosBalanceBreakdown | null>(null);
@@ -105,8 +128,8 @@ export function TezosBalanceBreakdownChart({ wallet }: TezosBalanceBreakdownChar
 
                     {/* Stacked Area Chart */}
                     {hasStaking && (
-                        <ResponsiveContainer width="100%" height={200}>
-                            <AreaChart data={chartData}>
+                        <ChartContainer config={chartConfig} className="h-[200px] w-full">
+                            <AreaChart accessibilityLayer data={chartData}>
                                 <defs>
                                     <linearGradient id="spendableGradient" x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.8} />
@@ -121,25 +144,21 @@ export function TezosBalanceBreakdownChart({ wallet }: TezosBalanceBreakdownChar
                                         <stop offset="95%" stopColor="hsl(var(--chart-3))" stopOpacity={0.3} />
                                     </linearGradient>
                                 </defs>
-                                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
-                                <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                                <Tooltip
-                                    contentStyle={{
-                                        backgroundColor: "hsl(var(--card))",
-                                        border: "1px solid hsl(var(--border))",
-                                        borderRadius: "var(--radius)",
-                                    }}
-                                    formatter={(value: number) => [`${value.toFixed(4)} XTZ`]}
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                <XAxis dataKey="name" tickLine={false} axisLine={false} tickMargin={8} />
+                                <YAxis tickLine={false} axisLine={false} tickMargin={8} />
+                                <ChartTooltip
+                                    content={
+                                        <ChartTooltipContent formatter={(value: number) => `${value.toFixed(4)} XTZ`} />
+                                    }
                                 />
-                                <Legend />
+                                <ChartLegend content={<ChartLegendContent />} />
                                 <Area
                                     type="monotone"
                                     dataKey="spendable"
                                     stackId="1"
                                     stroke="hsl(var(--chart-1))"
                                     fill="url(#spendableGradient)"
-                                    name="Spendable"
                                 />
                                 {breakdown.staked > 0 && (
                                     <Area
@@ -148,7 +167,6 @@ export function TezosBalanceBreakdownChart({ wallet }: TezosBalanceBreakdownChar
                                         stackId="1"
                                         stroke="hsl(var(--chart-2))"
                                         fill="url(#stakedGradient)"
-                                        name="Staked"
                                     />
                                 )}
                                 {breakdown.unstaked > 0 && (
@@ -158,11 +176,10 @@ export function TezosBalanceBreakdownChart({ wallet }: TezosBalanceBreakdownChar
                                         stackId="1"
                                         stroke="hsl(var(--chart-3))"
                                         fill="url(#unstakedGradient)"
-                                        name="Unstaked"
                                     />
                                 )}
                             </AreaChart>
-                        </ResponsiveContainer>
+                        </ChartContainer>
                     )}
 
                     {/* Simple breakdown bars if no staking */}

@@ -2,16 +2,35 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Legend } from "recharts";
 import { useState, useEffect } from "react";
 import { fetchTezosHistory } from "@/lib/blockchain/tezos";
 import { fetchEtherlinkHistory } from "@/lib/blockchain/etherlink";
 import type { Wallet } from "@/lib/types";
 import { Activity } from "lucide-react";
+import {
+    ChartContainer,
+    ChartTooltip,
+    ChartTooltipContent,
+    ChartLegend,
+    ChartLegendContent,
+    type ChartConfig,
+} from "@/components/ui/chart";
 
 interface PortfolioTimelineProps {
     wallets: Wallet[];
 }
+
+const chartConfig = {
+    tezos: {
+        label: "Tezos",
+        color: "hsl(var(--chart-1))",
+    },
+    etherlink: {
+        label: "Etherlink",
+        color: "hsl(var(--chart-2))",
+    },
+} satisfies ChartConfig;
 
 export function PortfolioTimeline({ wallets }: PortfolioTimelineProps) {
     const [timeRange, setTimeRange] = useState("30");
@@ -119,8 +138,8 @@ export function PortfolioTimeline({ wallets }: PortfolioTimelineProps) {
                         No history available yet
                     </div>
                 ) : (
-                    <ResponsiveContainer width="100%" height={300}>
-                        <AreaChart data={data}>
+                    <ChartContainer config={chartConfig} className="h-[300px] w-full">
+                        <AreaChart accessibilityLayer data={data}>
                             <defs>
                                 <linearGradient id="tezosGradient" x1="0" y1="0" x2="0" y2="1">
                                     <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.8} />
@@ -131,26 +150,19 @@ export function PortfolioTimeline({ wallets }: PortfolioTimelineProps) {
                                     <stop offset="95%" stopColor="hsl(var(--chart-2))" stopOpacity={0.3} />
                                 </linearGradient>
                             </defs>
-                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
-                            <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                            <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                            <Tooltip
-                                contentStyle={{
-                                    backgroundColor: "hsl(var(--background))",
-                                    border: "1px solid hsl(var(--border))",
-                                    borderRadius: "var(--radius)",
-                                    color: "hsl(var(--foreground))",
-                                }}
-                                formatter={(value: number) => value.toFixed(4)}
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                            <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} />
+                            <YAxis tickLine={false} axisLine={false} tickMargin={8} />
+                            <ChartTooltip
+                                content={<ChartTooltipContent formatter={(value: number) => value.toFixed(4)} />}
                             />
-                            <Legend />
+                            <ChartLegend content={<ChartLegendContent />} />
                             <Area
                                 type="monotone"
                                 dataKey="tezos"
                                 stackId="1"
                                 stroke="hsl(var(--chart-1))"
                                 fill="url(#tezosGradient)"
-                                name="Tezos"
                             />
                             <Area
                                 type="monotone"
@@ -158,10 +170,9 @@ export function PortfolioTimeline({ wallets }: PortfolioTimelineProps) {
                                 stackId="1"
                                 stroke="hsl(var(--chart-2))"
                                 fill="url(#etherlinkGradient)"
-                                name="Etherlink"
                             />
                         </AreaChart>
-                    </ResponsiveContainer>
+                    </ChartContainer>
                 )}
             </CardContent>
         </Card>

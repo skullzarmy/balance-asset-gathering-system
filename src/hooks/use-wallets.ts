@@ -26,24 +26,25 @@ export function useWallets() {
                 setWallets(storedWallets);
                 setLoading(false);
 
-                // Only refresh if wallets are stale (older than 5 minutes)
+                // Only refresh if wallets are stale (older than 5 minutes) OR missing tokens
                 const STALE_THRESHOLD = 5 * 60 * 1000; // 5 minutes
                 const now = Date.now();
 
-                const staleWallets = storedWallets.filter((w) => {
+                const walletsNeedingRefresh = storedWallets.filter((w) => {
                     const isStale = !w.lastUpdated || now - w.lastUpdated > STALE_THRESHOLD;
-                    return isStale;
+                    const missingTokens = !w.tokens || w.tokens.length === 0;
+                    return isStale || missingTokens;
                 });
 
-                if (staleWallets.length === 0) {
+                if (walletsNeedingRefresh.length === 0) {
                     return;
                 }
 
-                // Refresh only stale wallets
-                staleWallets.forEach(async (wallet) => {
+                // Refresh wallets that are stale or missing tokens
+                walletsNeedingRefresh.forEach(async (wallet) => {
                     try {
                         if (wallet.type === "tezos") {
-                            const [breakdown, delegation, prices] = await Promise.all([
+                            const [breakdown, delegation, tokens, prices] = await Promise.all([
                                 fetchTezosBalanceBreakdown(wallet.address).catch(() => ({
                                     total: 0,
                                     spendable: 0,
@@ -53,6 +54,7 @@ export function useWallets() {
                                 fetchDelegationStatus(wallet.address).catch(() => ({
                                     status: "undelegated" as const,
                                 })),
+                                fetchTezosTokens(wallet.address).catch(() => []),
                                 getAllPrices("XTZ").catch(() => ({
                                     usd: null,
                                     eur: null,
@@ -75,6 +77,7 @@ export function useWallets() {
                                 status: delegation.status,
                                 delegatedTo: "delegatedTo" in delegation ? delegation.delegatedTo : undefined,
                                 stakedAmount: "stakedAmount" in delegation ? delegation.stakedAmount : undefined,
+                                tokens,
                             };
 
                             // Update storage
@@ -83,8 +86,9 @@ export function useWallets() {
                             // Update state progressively
                             setWallets((prev) => prev.map((w) => (w.id === wallet.id ? updated : w)));
                         } else {
-                            const [balance, prices] = await Promise.all([
+                            const [balance, tokens, prices] = await Promise.all([
                                 fetchEtherlinkBalance(wallet.address).catch(() => 0),
+                                fetchEtherlinkTokens(wallet.address).catch(() => []),
                                 getAllPrices("XTZ").catch(() => ({ usd: null, eur: null, timestamp: Date.now() })),
                             ]);
 
@@ -97,6 +101,7 @@ export function useWallets() {
                                 usdValue,
                                 eurValue,
                                 lastUpdated: prices.timestamp,
+                                tokens,
                             };
 
                             // Update storage
