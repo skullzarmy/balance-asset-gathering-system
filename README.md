@@ -234,4 +234,4 @@ git push origin feature/your-feature-name
 
 Made with ☕ and chaos by [@skullzarmy](https://github.com/skullzarmy)
 
-[**a FAFO ~~lab~~ joint**](https://fafolab.xyz)
+**a [ FAFO ~~lab~~](https://fafolab.xyz) joint**
