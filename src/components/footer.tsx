@@ -28,6 +28,14 @@ const Footer: React.FC = () => {
                 >
                     Privacy
                 </Link>
+                <Link
+                    href="https://github.com/skullzarmy/balance-asset-gathering-system"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-muted-foreground hover:text-foreground underline underline-offset-2"
+                >
+                    GitHub
+                </Link>
             </div>
             <span className="text-muted-foreground">
                 © {yearDisplay} {siteConfig.name}. All rights reserved. a{" "}
