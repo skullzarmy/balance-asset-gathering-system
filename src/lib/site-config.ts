@@ -6,7 +6,7 @@
  */
 
 export const siteConfig = {
-    name: "BAGS",
+    name: "B.A.G.S.",
     subtitle: "Balance & Asset Gathering System",
     description: "Portfolio tracker for Tezos and Etherlink wallets",
     url: process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
@@ -14,7 +14,7 @@ export const siteConfig = {
     // Copyright information
     copyright: {
         startYear: 2025,
-        owner: "BAGS",
+        owner: "B.A.G.S.",
     },
 
     // Social/External links

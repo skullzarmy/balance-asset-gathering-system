@@ -1,4 +1,4 @@
-# Contributing to BAGS 💰
+# Contributing to B.A.G.S. 💰
 
 First off, thanks for taking the time to contribute! This is a FAFO ~~lab~~ joint, so don't be afraid to experiment and break things.
 
@@ -152,7 +152,7 @@ While we don't have automated tests yet (PRs welcome!), please manually test:
 
 ## Privacy & Security Guidelines
 
-BAGS is privacy-first. When contributing, ensure:
+B.A.G.S. is privacy-first. When contributing, ensure:
 
 -   ✅ No data sent to external servers (except public blockchain APIs)
 -   ✅ No analytics or tracking code

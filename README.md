@@ -1,4 +1,4 @@
-# 💰 BAGS
+# 💰 B.A.G.S.
 
 **Balance & Asset Gathering System**
 
@@ -136,7 +136,7 @@ balance-asset-gathering-system/
 
 1. Click the "**+ Add Wallet**" button
 2. Enter a Tezos address (tz1...), .tez domain, or Etherlink address (0x...)
-3. BAGS will auto-detect the chain and fetch balances
+3. B.A.G.S. will auto-detect the chain and fetch balances
 4. Optionally add a nickname for easy identification
 
 ### Viewing Portfolio
@@ -155,7 +155,7 @@ balance-asset-gathering-system/
 
 ## 🔐 Privacy & Security
 
-BAGS is built with privacy as a core principle:
+B.A.G.S. is built with privacy as a core principle:
 
 -   ✅ **Client-side only** - No server, no database
 -   ✅ **Open source** - Fully auditable code
@@ -163,7 +163,7 @@ BAGS is built with privacy as a core principle:
 -   ✅ **No wallet connection** - View-only, read addresses from public APIs
 -   ✅ **Local storage** - Data never leaves your browser
 
-> ⚠️ **Note**: BAGS is a portfolio tracker only. It cannot sign transactions or access your funds. Always verify addresses before sending crypto.
+> ⚠️ **Note**: B.A.G.S. is a portfolio tracker only. It cannot sign transactions or access your funds. Always verify addresses before sending crypto.
 
 ## 🤝 Contributing
 

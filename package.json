@@ -2,7 +2,7 @@
     "name": "bags",
     "version": "0.1.0",
     "author": "skullzarmy",
-    "description": "💰 BAGS - Balance & Asset Gathering System. A portfolio tracker for Tezos & Etherlink wallets that actually works. A FAFO lab joint.",
+    "description": "💰 B.A.G.S. - Balance & Asset Gathering System. A portfolio tracker for Tezos & Etherlink wallets that actually works. A FAFO lab joint.",
     "private": true,
     "scripts": {
         "dev": "next dev",

@@ -3,7 +3,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "sonner";
 
 export const metadata = {
-    title: "BAGS - Balance & Asset Gathering System",
+    title: "B.A.G.S. - Balance & Asset Gathering System",
     description: "Track your Tezos and Etherlink wallets",
 };
 

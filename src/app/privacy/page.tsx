@@ -123,7 +123,7 @@ export default function PrivacyPage() {
                         <p>
                             To show balances, your browser talks directly to public blockchain APIs (like TzKT). These
                             APIs see the wallet addresses you're checking, but they don't know who you are or that
-                            you're using BAGS.
+                            you're using B.A.G.S.
                         </p>
                         <p>
                             Think of it like reading a public bulletin board — the information is already public on the
