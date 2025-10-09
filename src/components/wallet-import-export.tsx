@@ -30,6 +30,14 @@ export function WalletImportExport({
     const [importMethod, setImportMethod] = useState<"file" | "qr">("file");
     const [isScanning, setIsScanning] = useState(false);
     const [qrCodeData, setQrCodeData] = useState<string>("");
+    const [qrPages, setQrPages] = useState<string[]>([]);
+    const [currentQrPage, setCurrentQrPage] = useState(0);
+    const [totalWalletsInExport, setTotalWalletsInExport] = useState(0);
+    const [importProgress, setImportProgress] = useState<{
+        currentPage: number;
+        totalPages: number;
+        walletsImported: number;
+    } | null>(null);
     const scannerRef = useRef<Html5QrcodeScanner | null>(null);
     const scannerElementId = "qr-scanner-region";
     const hasWallets = walletCount > 0;
@@ -72,18 +80,39 @@ export function WalletImportExport({
 
     const handleExportQR = () => {
         try {
-            const config = walletStorage.exportConfig();
-            const configSize = new Blob([config]).size;
+            const wallets = walletStorage.getWallets();
+            const walletsPerPage = 2; // Conservative limit for QR code capacity
+            const pages: string[] = [];
 
-            // Check if data is too large for a single QR code (practical limit ~2KB)
-            if (configSize > 2000) {
-                toast.error("Too much data for QR code", {
-                    description: "Consider exporting as JSON file instead, or remove some wallets",
-                });
+            // Split wallets into smaller batches
+            for (let i = 0; i < wallets.length; i += walletsPerPage) {
+                const batch = wallets.slice(i, i + walletsPerPage);
+                const pageConfig = {
+                    version: "2.0",
+                    exportDate: new Date().toISOString(),
+                    page: Math.floor(i / walletsPerPage) + 1,
+                    totalPages: Math.ceil(wallets.length / walletsPerPage),
+                    totalWallets: wallets.length,
+                    wallets: batch.map((w) => ({
+                        address: w.address,
+                        alias: w.label,
+                        enabled: true,
+                        type: w.type,
+                        ...(w.type === "tezos" && { tzdomain: w.tezDomain }),
+                    })),
+                };
+                pages.push(JSON.stringify(pageConfig));
+            }
+
+            if (pages.length === 0) {
+                toast.error("No wallets to export");
                 return;
             }
 
-            setQrCodeData(config);
+            setQrPages(pages);
+            setCurrentQrPage(0);
+            setTotalWalletsInExport(wallets.length);
+            setQrCodeData(pages[0]);
             setIsExportOpen(true);
         } catch {
             toast.error("Export failed", {
@@ -144,34 +173,76 @@ export function WalletImportExport({
             scannerRef.current = null;
         }
         setIsScanning(false);
+        setImportProgress(null);
     };
 
     const handleQRScanResult = async (data: string) => {
-        stopQRScanning();
-
         try {
-            const results = walletStorage.importConfig(data);
+            const parsedData = JSON.parse(data);
 
-            if (results.errors.length > 0) {
-                const message = results.success > 0 ? "success" : "error";
-                toast[message]("Import completed with errors", {
-                    description: `Imported: ${results.success}, Failed: ${results.failed}`,
-                });
+            // Check if this is a paginated export
+            if (parsedData.page && parsedData.totalPages) {
+                const results = walletStorage.importConfig(data);
+
+                // Update import progress
+                setImportProgress((prev) => ({
+                    currentPage: parsedData.page,
+                    totalPages: parsedData.totalPages,
+                    walletsImported: (prev?.walletsImported || 0) + results.success,
+                }));
+
+                if (results.errors.length > 0) {
+                    const message = results.success > 0 ? "success" : "error";
+                    toast[message](`Page ${parsedData.page}/${parsedData.totalPages} imported with errors`, {
+                        description: `Imported: ${results.success}, Failed: ${results.failed}`,
+                    });
+                } else {
+                    toast.success(`Page ${parsedData.page}/${parsedData.totalPages} imported`, {
+                        description: `Successfully imported ${results.success} wallet(s)`,
+                    });
+                }
+
+                if (parsedData.page < parsedData.totalPages) {
+                    toast.info("Ready for next QR code", {
+                        description: `Page ${parsedData.page + 1} of ${
+                            parsedData.totalPages
+                        } remaining - keep scanning!`,
+                        duration: 2000,
+                    });
+                    // Keep scanning - don't stop the camera
+                } else {
+                    toast.success("All pages imported!", {
+                        description: `Completed importing all ${parsedData.totalWallets} wallets`,
+                    });
+                    stopQRScanning();
+                    setIsImportOpen(false);
+                }
             } else {
-                toast.success("Import successful", {
-                    description: `Successfully imported ${results.success} wallet(s)`,
-                });
+                // Handle legacy single-page import
+                const results = walletStorage.importConfig(data);
+
+                if (results.errors.length > 0) {
+                    const message = results.success > 0 ? "success" : "error";
+                    toast[message]("Import completed with errors", {
+                        description: `Imported: ${results.success}, Failed: ${results.failed}`,
+                    });
+                } else {
+                    toast.success("Import successful", {
+                        description: `Successfully imported ${results.success} wallet(s)`,
+                    });
+                }
+                stopQRScanning();
+                setIsImportOpen(false);
             }
 
-            if (results.success > 0 && onImportComplete) {
+            if (onImportComplete) {
                 onImportComplete();
             }
-
-            setIsImportOpen(false);
         } catch {
             toast.error("Import failed", {
-                description: "Invalid QR code data format",
+                description: "Invalid QR code data format - try scanning again",
             });
+            // Don't stop scanning on error, let them try again
         }
     };
 
@@ -284,6 +355,22 @@ export function WalletImportExport({
                                     </>
                                 ) : (
                                     <div className="space-y-4">
+                                        {importProgress && (
+                                            <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
+                                                <p className="text-sm font-medium text-green-800">
+                                                    Progress: {importProgress.currentPage}/{importProgress.totalPages}{" "}
+                                                    pages
+                                                </p>
+                                                <p className="text-xs text-green-600">
+                                                    {importProgress.walletsImported} wallets imported so far
+                                                </p>
+                                                {importProgress.currentPage < importProgress.totalPages && (
+                                                    <p className="text-xs text-green-600 mt-1">
+                                                        📱 Ready for page {importProgress.currentPage + 1}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        )}
                                         <div
                                             id={scannerElementId}
                                             className="mx-auto w-full max-w-sm"
@@ -293,7 +380,9 @@ export function WalletImportExport({
                                             Stop Scanning
                                         </Button>
                                         <p className="text-sm text-muted-foreground">
-                                            Position the QR code within the camera view
+                                            {importProgress
+                                                ? "Scan the next QR code to continue importing"
+                                                : "Position the QR code within the camera view"}
                                         </p>
                                     </div>
                                 )}
@@ -345,21 +434,67 @@ export function WalletImportExport({
                     <DialogHeader>
                         <DialogTitle>Export as QR Code</DialogTitle>
                         <DialogDescription>
-                            Scan this QR code with your mobile device to import the wallet configuration.
+                            {qrPages.length > 1
+                                ? `Page ${currentQrPage + 1} of ${qrPages.length} - Scan each QR code separately`
+                                : "Scan this QR code with your mobile device to import the wallet configuration."}
                         </DialogDescription>
                     </DialogHeader>
 
                     {qrCodeData && (
                         <div className="flex flex-col items-center space-y-4">
+                            {qrPages.length > 1 && (
+                                <div className="w-full bg-muted p-3 rounded-lg text-center">
+                                    <p className="text-sm font-medium">
+                                        Page {currentQrPage + 1} of {qrPages.length}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                        {totalWalletsInExport} wallets split into {qrPages.length} QR codes
+                                    </p>
+                                </div>
+                            )}
+
                             <div className="bg-white p-4 rounded-lg">
                                 <QRCodeSVG value={qrCodeData} size={256} level="M" includeMargin={true} />
                             </div>
+
+                            {qrPages.length > 1 && (
+                                <div className="flex gap-2 w-full">
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => {
+                                            const newPage = Math.max(0, currentQrPage - 1);
+                                            setCurrentQrPage(newPage);
+                                            setQrCodeData(qrPages[newPage]);
+                                        }}
+                                        disabled={currentQrPage === 0}
+                                        className="flex-1"
+                                    >
+                                        Previous
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => {
+                                            const newPage = Math.min(qrPages.length - 1, currentQrPage + 1);
+                                            setCurrentQrPage(newPage);
+                                            setQrCodeData(qrPages[newPage]);
+                                        }}
+                                        disabled={currentQrPage === qrPages.length - 1}
+                                        className="flex-1"
+                                    >
+                                        Next
+                                    </Button>
+                                </div>
+                            )}
+
                             <div className="text-center space-y-2">
-                                <p className="text-sm font-medium">Scan with your mobile device</p>
+                                <p className="text-sm font-medium">
+                                    {qrPages.length > 1 ? "Scan each QR code in order" : "Scan with your mobile device"}
+                                </p>
                                 <p className="text-xs text-muted-foreground">
                                     Make sure the entire QR code is visible in your camera viewfinder
                                 </p>
                             </div>
+
                             <Button
                                 variant="outline"
                                 onClick={() => {
@@ -368,7 +503,7 @@ export function WalletImportExport({
                                 }}
                                 className="w-full"
                             >
-                                Copy JSON to Clipboard
+                                Copy Current Page to Clipboard
                             </Button>
                         </div>
                     )}
