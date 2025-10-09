@@ -27,7 +27,7 @@ export default function PWAInstallPrompt() {
                 const isStandalone = window.matchMedia("(display-mode: standalone)").matches;
                 // Check for iOS standalone mode
                 const isIOSStandalone = (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
-                
+
                 console.log("PWA Install Check:", { isStandalone, isIOSStandalone });
                 setIsInstalled(isStandalone || isIOSStandalone);
             }
@@ -58,7 +58,7 @@ export default function PWAInstallPrompt() {
 
         // Add debug logging
         console.log("PWA Install Prompt: Setting up event listeners");
-        
+
         window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
         window.addEventListener("appinstalled", handleAppInstalled);
 
