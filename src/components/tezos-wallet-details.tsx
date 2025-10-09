@@ -1,13 +1,13 @@
 "use client";
 
-import type { TezosWallet, WalletRewards } from "@/lib/types";
+import type { TezosWallet } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Coins, TrendingUp, Users, Award } from "lucide-react";
 import { BalanceHistoryChart } from "./balance-history-chart";
 import { TezosBalanceBreakdownChart } from "./tezos-balance-breakdown";
-import { fetchWalletRewards } from "@/lib/blockchain/tezos";
-import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { queries } from "@/lib/queries";
 
 interface TezosWalletDetailsProps {
     wallet: TezosWallet;
@@ -15,19 +15,9 @@ interface TezosWalletDetailsProps {
 
 export function TezosWalletDetails({ wallet }: TezosWalletDetailsProps) {
     const { delegationDetails, tokens } = wallet;
-    const [rewards, setRewards] = useState<WalletRewards | null>(null);
-    const [loadingRewards, setLoadingRewards] = useState(true);
 
-    useEffect(() => {
-        const loadRewards = async () => {
-            setLoadingRewards(true);
-            const data = await fetchWalletRewards(wallet.address);
-            setRewards(data);
-            setLoadingRewards(false);
-        };
-
-        loadRewards();
-    }, [wallet.address]);
+    // Use TanStack Query for rewards with automatic caching and deduplication
+    const { data: rewards, isLoading: loadingRewards } = useQuery(queries.tezos.rewards(wallet.address));
 
     return (
         <div className="space-y-4">

@@ -3,58 +3,22 @@
 import type { EtherlinkWallet } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Coins, ArrowUpRight, ArrowDownLeft, Activity, FileCode } from "lucide-react";
-import { useEffect, useState } from "react";
-import { fetchEtherlinkTransactions } from "@/lib/blockchain/etherlink";
-import type { Transaction } from "@/lib/types";
+import { useQuery } from "@tanstack/react-query";
+import { queries } from "@/lib/queries";
 import { BalanceHistoryChart } from "./balance-history-chart";
 
 interface EtherlinkWalletDetailsProps {
     wallet: EtherlinkWallet;
 }
 
-interface AddressCounters {
-    transactions_count: string;
-    token_transfers_count: string;
-    gas_usage_count: string;
-    validations_count: string;
-}
-
 export function EtherlinkWalletDetails({ wallet }: EtherlinkWalletDetailsProps) {
     const { tokens } = wallet;
-    const [transactions, setTransactions] = useState<Transaction[]>([]);
-    const [counters, setCounters] = useState<AddressCounters | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [loadingCounters, setLoadingCounters] = useState(true);
 
-    useEffect(() => {
-        const loadTransactions = async () => {
-            setLoading(true);
-            const txs = await fetchEtherlinkTransactions(wallet.address);
-            setTransactions(txs);
-            setLoading(false);
-        };
-        loadTransactions();
-    }, [wallet.address]);
+    // Use TanStack Query for transactions
+    const { data: transactions = [], isLoading: loading } = useQuery(queries.etherlink.transactions(wallet.address));
 
-    useEffect(() => {
-        const loadCounters = async () => {
-            setLoadingCounters(true);
-            try {
-                const response = await fetch(
-                    `https://explorer.etherlink.com/api/v2/addresses/${wallet.address}/counters`
-                );
-                if (response.ok) {
-                    const data = await response.json();
-                    setCounters(data);
-                }
-            } catch (error) {
-                console.error("Failed to fetch address counters:", error);
-            } finally {
-                setLoadingCounters(false);
-            }
-        };
-        loadCounters();
-    }, [wallet.address]);
+    // Use TanStack Query for address counters
+    const { data: counters, isLoading: loadingCounters } = useQuery(queries.etherlink.counters(wallet.address));
 
     return (
         <div className="space-y-4">

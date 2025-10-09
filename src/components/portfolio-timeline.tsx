@@ -2,10 +2,10 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Legend } from "recharts";
-import { useState, useEffect } from "react";
-import { fetchTezosHistory } from "@/lib/blockchain/tezos";
-import { fetchEtherlinkHistory } from "@/lib/blockchain/etherlink";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid } from "recharts";
+import { useState, useMemo } from "react";
+import { useQueries } from "@tanstack/react-query";
+import { queries } from "@/lib/queries";
 import type { Wallet } from "@/lib/types";
 import { Activity } from "lucide-react";
 import {
@@ -34,70 +34,59 @@ const chartConfig = {
 
 export function PortfolioTimeline({ wallets }: PortfolioTimelineProps) {
     const [timeRange, setTimeRange] = useState("30");
-    const [data, setData] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [loadingProgress, setLoadingProgress] = useState({ current: 0, total: 0, phase: "Fetching..." });
+    const days = Number.parseInt(timeRange);
 
-    useEffect(() => {
-        const loadAllHistory = async () => {
-            setLoading(true);
-            setLoadingProgress({ current: 0, total: wallets.length, phase: "Fetching wallet data..." });
-            const days = Number.parseInt(timeRange);
+    // Use useQueries for parallel fetching with automatic request deduplication
+    const historyQueries = useQueries({
+        queries: wallets.map((wallet) =>
+            wallet.type === "tezos"
+                ? queries.tezos.history(wallet.address, days)
+                : queries.etherlink.history(wallet.address, days)
+        ),
+    });
 
-            // Fetch history for all wallets in parallel for maximum speed
-            const histories = await Promise.all(
-                wallets.map(async (wallet, index) => {
-                    const result =
-                        wallet.type === "tezos"
-                            ? { wallet, history: await fetchTezosHistory(wallet.address, days) }
-                            : { wallet, history: await fetchEtherlinkHistory(wallet.address, days) };
+    // Calculate loading state
+    const loading = historyQueries.some((q) => q.isLoading);
+    const loadedCount = historyQueries.filter((q) => !q.isLoading).length;
 
-                    setLoadingProgress((prev) => ({ ...prev, current: prev.current + 1 }));
-                    return result;
-                })
-            );
-
-            setLoadingProgress((prev) => ({ ...prev, phase: "Processing data..." }));
-
-            // Aggregate by date - balance_history returns liquid balance (excluding staked)
-            const dateMap = new Map<string, any>();
-
-            histories.forEach(({ wallet, history }) => {
-                history.forEach((point) => {
-                    const date = new Date(point.timestamp).toLocaleDateString();
-                    const existing = dateMap.get(date) || {
-                        date,
-                        tezos: 0,
-                        etherlink: 0,
-                    };
-
-                    if (wallet.type === "tezos") {
-                        // balance from balance_history is liquid balance (staked tez are pseudotokens, not included)
-                        existing.tezos += point.balance;
-                    } else {
-                        existing.etherlink += point.balance;
-                    }
-
-                    dateMap.set(date, existing);
-                });
-            });
-
-            setLoadingProgress((prev) => ({ ...prev, phase: "Building chart..." }));
-
-            const chartData = Array.from(dateMap.values()).sort(
-                (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-            );
-
-            setData(chartData);
-            setLoading(false);
-        };
-
-        if (wallets.length > 0) {
-            loadAllHistory();
-        } else {
-            setLoading(false);
+    // Process and aggregate data using useMemo for performance
+    const data = useMemo(() => {
+        if (loading || historyQueries.some((q) => q.error)) {
+            return [];
         }
-    }, [wallets, timeRange]);
+
+        // Aggregate by date - balance_history returns liquid balance (excluding staked)
+        const dateMap = new Map<string, { date: string; tezos: number; etherlink: number }>();
+
+        historyQueries.forEach((query, index) => {
+            const wallet = wallets[index];
+            const history = query.data || [];
+
+            history.forEach((point) => {
+                const date = new Date(point.timestamp).toLocaleDateString();
+                const existing = dateMap.get(date) || {
+                    date,
+                    tezos: 0,
+                    etherlink: 0,
+                };
+
+                if (wallet.type === "tezos") {
+                    // balance from balance_history is liquid balance (staked tez are pseudotokens, not included)
+                    existing.tezos += point.balance;
+                } else {
+                    existing.etherlink += point.balance;
+                }
+
+                dateMap.set(date, existing);
+            });
+        });
+
+        const chartData = Array.from(dateMap.values()).sort(
+            (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+        );
+
+        return chartData;
+    }, [historyQueries, wallets, loading]);
 
     return (
         <Card className="bg-card/50 backdrop-blur border-border/50">
@@ -122,14 +111,14 @@ export function PortfolioTimeline({ wallets }: PortfolioTimelineProps) {
                     <div className="h-[300px] flex flex-col items-center justify-center gap-3">
                         <div className="flex flex-col items-center gap-2">
                             <div className="text-sm font-medium">
-                                {loadingProgress.current}/{loadingProgress.total} wallets
+                                {loadedCount}/{wallets.length} wallets
                             </div>
-                            <div className="text-xs text-muted-foreground animate-pulse">{loadingProgress.phase}</div>
+                            <div className="text-xs text-muted-foreground animate-pulse">Loading wallet history...</div>
                         </div>
                         <div className="w-64 h-2 bg-muted rounded-full overflow-hidden">
                             <div
                                 className="h-full bg-primary transition-all duration-300"
-                                style={{ width: `${(loadingProgress.current / loadingProgress.total) * 100}%` }}
+                                style={{ width: `${(loadedCount / wallets.length) * 100}%` }}
                             />
                         </div>
                     </div>

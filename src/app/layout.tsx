@@ -3,6 +3,8 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "sonner";
 import PWAInstallPrompt from "@/components/pwa-install-prompt";
 import ServiceWorkerManager from "@/components/service-worker-manager";
+import CacheManager from "@/components/cache-manager";
+import { QueryProvider } from "@/components/query-provider";
 
 export const metadata = {
     title: "B.A.G.S. - Balance & Asset Gathering System",
@@ -14,14 +16,6 @@ export const metadata = {
         statusBarStyle: "default",
     },
     manifest: "/manifest.json",
-    themeColor: "#ffffff",
-    viewport: {
-        width: "device-width",
-        initialScale: 1,
-        minimumScale: 1,
-        userScalable: false,
-        viewportFit: "cover",
-    },
     icons: {
         icon: [
             { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
@@ -40,6 +34,15 @@ export const metadata = {
     },
 };
 
+export const viewport = {
+    width: "device-width",
+    initialScale: 1,
+    minimumScale: 1,
+    userScalable: false,
+    viewportFit: "cover",
+    themeColor: "#ffffff",
+};
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
     return (
         <html lang="en" suppressHydrationWarning>
@@ -49,12 +52,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
             </head>
             <body>
-                <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-                    {children}
-                    <PWAInstallPrompt />
-                    <ServiceWorkerManager />
-                    <Toaster richColors />
-                </ThemeProvider>
+                <QueryProvider>
+                    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+                        <CacheManager />
+                        {children}
+                        <PWAInstallPrompt />
+                        <ServiceWorkerManager />
+                        <Toaster richColors />
+                    </ThemeProvider>
+                </QueryProvider>
             </body>
         </html>
     );

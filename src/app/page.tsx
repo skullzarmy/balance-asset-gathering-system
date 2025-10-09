@@ -1,6 +1,8 @@
 "use client";
 
+import React from "react";
 import { useWallets } from "@/hooks/use-wallets";
+import { usePrefetch } from "@/hooks/use-prefetch";
 import { Header } from "@/components/header";
 import { AddWalletDialog } from "@/components/add-wallet-dialog";
 import { WalletImportExport } from "@/components/wallet-import-export";
@@ -8,9 +10,18 @@ import { DashboardOverview } from "@/components/dashboard-overview";
 import Footer from "@/components/footer";
 import { siteConfig } from "@/lib/site-config";
 import { Wallet, Shield } from "lucide-react";
+import { WalletCardSkeleton } from "@/components/ui/skeleton";
 
 export default function Home() {
     const { wallets, loading, addWallet, removeWallet, refreshWallet, updateWalletLabel } = useWallets();
+    const { prefetchNextLikely } = usePrefetch();
+
+    // Prefetch likely next data when wallets are loaded
+    React.useEffect(() => {
+        if (wallets.length > 0 && !loading) {
+            prefetchNextLikely(wallets);
+        }
+    }, [wallets, loading, prefetchNextLikely]);
 
     const handleImportComplete = () => {
         // Trigger a page reload to refresh wallet data
@@ -19,8 +30,16 @@ export default function Home() {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center min-h-screen">
-                <div className="text-muted-foreground">Loading...</div>
+            <div className="min-h-screen bg-background">
+                <Header onAddWallet={addWallet} onImportComplete={handleImportComplete} walletCount={0} />
+                <main className="container mx-auto px-4 py-8">
+                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                        {[0, 1, 2].map((id) => (
+                            <WalletCardSkeleton key={`skeleton-loading-${id}`} />
+                        ))}
+                    </div>
+                </main>
+                <Footer />
             </div>
         );
     }

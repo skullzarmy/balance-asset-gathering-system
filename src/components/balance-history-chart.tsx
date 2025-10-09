@@ -3,12 +3,14 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid } from "recharts";
-import { useState, useEffect } from "react";
-import { fetchTezosHistory } from "@/lib/blockchain/tezos";
-import { fetchEtherlinkHistory } from "@/lib/blockchain/etherlink";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { queries } from "@/lib/queries";
 import type { Wallet } from "@/lib/types";
 import { TrendingUp } from "lucide-react";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
+import { QueryError } from "@/components/ui/error-boundary";
+import { ChartSkeleton } from "@/components/ui/skeleton";
 
 interface BalanceHistoryChartProps {
     wallet: Wallet;
@@ -23,45 +25,31 @@ const chartConfig = {
 
 export function BalanceHistoryChart({ wallet }: BalanceHistoryChartProps) {
     const [timeframe, setTimeframe] = useState<"7d" | "30d" | "90d" | "all">("30d");
-    const [data, setData] = useState<Array<{ date: string; balance: number }>>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        const loadData = async () => {
-            setLoading(true);
-            setError(null);
-            try {
-                const days = timeframe === "all" ? 365 : Number.parseInt(timeframe.replace("d", ""));
-                console.log(`[BalanceHistoryChart] Loading ${days} days of history for ${wallet.address}`);
+    const days = timeframe === "all" ? 365 : Number.parseInt(timeframe.replace("d", ""));
 
-                if (wallet.type === "tezos") {
-                    const history = await fetchTezosHistory(wallet.address, days);
-                    console.log(`[BalanceHistoryChart] Received ${history.length} history points`, history);
-                    const formattedData = history.map((point) => ({
-                        date: new Date(point.timestamp).toLocaleDateString(),
-                        balance: point.balance,
-                    }));
-                    console.log(`[BalanceHistoryChart] Formatted data:`, formattedData);
-                    setData(formattedData);
-                } else {
-                    const history = await fetchEtherlinkHistory(wallet.address, days);
-                    const formattedData = history.map((point) => ({
-                        date: new Date(point.timestamp).toLocaleDateString(),
-                        balance: point.balance,
-                    }));
-                    setData(formattedData);
-                }
-            } catch (err) {
-                console.error("Error loading balance history:", err);
-                setError("Failed to load balance history");
-                setData([]);
-            } finally {
-                setLoading(false);
-            }
-        };
-        loadData();
-    }, [wallet.address, wallet.type, timeframe]);
+    // Use separate queries based on wallet type for proper TypeScript typing
+    const tezosQuery = useQuery({
+        ...queries.tezos.history(wallet.address, days),
+        enabled: wallet.type === "tezos",
+    });
+
+    const etherlinkQuery = useQuery({
+        ...queries.etherlink.history(wallet.address, days),
+        enabled: wallet.type === "etherlink",
+    });
+
+    // Get the appropriate query result
+    const activeQuery = wallet.type === "tezos" ? tezosQuery : etherlinkQuery;
+    const historyData = activeQuery.data || [];
+    const loading = activeQuery.isLoading;
+    const error = activeQuery.error;
+
+    // Format data for chart
+    const data = historyData.map((point) => ({
+        date: new Date(point.timestamp).toLocaleDateString(),
+        balance: point.balance,
+    }));
 
     return (
         <Card className="bg-card/50 backdrop-blur border-border/50">
@@ -83,10 +71,20 @@ export function BalanceHistoryChart({ wallet }: BalanceHistoryChartProps) {
                 </Select>
             </CardHeader>
             <CardContent>
-                {loading && (
-                    <div className="h-[300px] flex items-center justify-center text-muted-foreground">Loading...</div>
+                {loading && <ChartSkeleton />}
+                {error && (
+                    <QueryError
+                        error={error}
+                        onRetry={() => {
+                            if (wallet.type === "tezos") {
+                                tezosQuery.refetch();
+                            } else {
+                                etherlinkQuery.refetch();
+                            }
+                        }}
+                        isRetrying={wallet.type === "tezos" ? tezosQuery.isFetching : etherlinkQuery.isFetching}
+                    />
                 )}
-                {error && <div className="h-[300px] flex items-center justify-center text-destructive">{error}</div>}
                 {!loading && !error && data.length === 0 && (
                     <div className="h-[300px] flex items-center justify-center text-muted-foreground">
                         No data available

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RefreshCw, Trash2, ExternalLink, Pencil, Check, X } from "lucide-react";
 import { useState } from "react";
+import { usePrefetch } from "@/hooks/use-prefetch";
 
 interface WalletCardProps {
     wallet: Wallet;
@@ -19,6 +20,7 @@ export function WalletCard({ wallet, onRefresh, onRemove, onUpdateLabel }: Walle
     const [refreshing, setRefreshing] = useState(false);
     const [editing, setEditing] = useState(false);
     const [editLabel, setEditLabel] = useState(wallet.label);
+    const { prefetchOnHover } = usePrefetch();
 
     const handleRefresh = async () => {
         setRefreshing(true);
@@ -46,7 +48,7 @@ export function WalletCard({ wallet, onRefresh, onRemove, onUpdateLabel }: Walle
     const totalTokens = wallet.tokens ? wallet.tokens.length : 0;
 
     return (
-        <Card className="bg-card/50 backdrop-blur border-border/50">
+        <Card className="bg-card/50 backdrop-blur border-border/50" onMouseEnter={() => prefetchOnHover(wallet)}>
             <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
                 <div className="space-y-1 flex-1">
                     {editing ? (
