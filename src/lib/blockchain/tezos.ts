@@ -168,61 +168,57 @@ export async function fetchDelegationStatus(address: string) {
 export async function fetchWalletRewards(address: string): Promise<WalletRewards | null> {
     try {
         // Fetch last 10 cycles to find one with actual paid rewards
-        const response = await rateLimitedTzKTFetch(
-            `https://api.tzkt.io/v1/rewards/delegators/${address}?limit=10`
-        );
-        
+        const response = await rateLimitedTzKTFetch(`https://api.tzkt.io/v1/rewards/delegators/${address}?limit=10`);
+
         if (!response.ok) return null;
-        
+
         const data = await response.json();
         if (!data || data.length === 0) return null;
-        
+
         // Find first cycle with actual paid rewards (non-zero)
         const rewardCycle = data.find((r: any) => {
-            const stakingRewards = (
+            const stakingRewards =
                 (r.attestationRewardsStakedOwn || 0) +
                 (r.blockRewardsStakedOwn || 0) +
                 (r.dalAttestationRewardsStakedOwn || 0) +
-                (r.endorsementRewardsStakedOwn || 0)
-            );
-            const delegatingRewards = (
+                (r.endorsementRewardsStakedOwn || 0);
+            const delegatingRewards =
                 (r.attestationRewardsDelegated || 0) +
                 (r.blockRewardsDelegated || 0) +
                 (r.dalAttestationRewardsDelegated || 0) +
-                (r.endorsementRewardsDelegated || 0)
-            );
-            return (stakingRewards + delegatingRewards) > 0;
+                (r.endorsementRewardsDelegated || 0);
+            return stakingRewards + delegatingRewards > 0;
         });
-        
+
         // If no paid cycle found, use the most recent one for future rewards info
         const reward = rewardCycle || data[0];
-        
+
         // Calculate staking rewards (delegator's own staked rewards)
-        const stakingRewards = (
-            (reward.attestationRewardsStakedOwn || 0) +
-            (reward.blockRewardsStakedOwn || 0) +
-            (reward.dalAttestationRewardsStakedOwn || 0) +
-            (reward.endorsementRewardsStakedOwn || 0)
-        ) / 1_000_000;
-        
+        const stakingRewards =
+            ((reward.attestationRewardsStakedOwn || 0) +
+                (reward.blockRewardsStakedOwn || 0) +
+                (reward.dalAttestationRewardsStakedOwn || 0) +
+                (reward.endorsementRewardsStakedOwn || 0)) /
+            1_000_000;
+
         // Calculate delegating rewards (delegator's share from delegating)
-        const delegatingRewards = (
-            (reward.attestationRewardsDelegated || 0) +
-            (reward.blockRewardsDelegated || 0) +
-            (reward.dalAttestationRewardsDelegated || 0) +
-            (reward.endorsementRewardsDelegated || 0)
-        ) / 1_000_000;
-        
+        const delegatingRewards =
+            ((reward.attestationRewardsDelegated || 0) +
+                (reward.blockRewardsDelegated || 0) +
+                (reward.dalAttestationRewardsDelegated || 0) +
+                (reward.endorsementRewardsDelegated || 0)) /
+            1_000_000;
+
         // Calculate future rewards from the current cycle
         const currentCycle = data[0];
-        const futureRewards = (
-            (currentCycle.futureBlockRewards || 0) +
-            (currentCycle.futureEndorsementRewards || 0) +
-            (currentCycle.futureDalAttestationRewards || 0)
-        ) / 1_000_000;
-        
+        const futureRewards =
+            ((currentCycle.futureBlockRewards || 0) +
+                (currentCycle.futureEndorsementRewards || 0) +
+                (currentCycle.futureDalAttestationRewards || 0)) /
+            1_000_000;
+
         const totalRewards = stakingRewards + delegatingRewards;
-        
+
         return {
             cycle: reward.cycle,
             totalRewards,

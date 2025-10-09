@@ -5,6 +5,9 @@ import { Toaster } from "sonner";
 export const metadata = {
     title: "B.A.G.S. - Balance & Asset Gathering System",
     description: "Track your Tezos and Etherlink wallets",
+    appleWebApp: {
+        title: "B.A.G.S.",
+    },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

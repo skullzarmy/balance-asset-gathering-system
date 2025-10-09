@@ -33,7 +33,6 @@ export function TezosWalletDetails({ wallet }: TezosWalletDetailsProps) {
         <div className="space-y-4">
             <BalanceHistoryChart wallet={wallet} />
             <TezosBalanceBreakdownChart wallet={wallet} />
-
             {/* Rewards */}
             {!loadingRewards && rewards && delegationDetails && (
                 <Card className="bg-card/50 backdrop-blur border-border/50">
@@ -86,7 +85,6 @@ export function TezosWalletDetails({ wallet }: TezosWalletDetailsProps) {
                     </CardContent>
                 </Card>
             )}
-
             {/* Delegation Details */}
             {delegationDetails && (
                 <Card className="bg-card/50 backdrop-blur border-border/50">
