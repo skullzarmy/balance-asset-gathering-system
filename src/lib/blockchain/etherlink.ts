@@ -214,3 +214,23 @@ export async function fetchEtherlinkHistory(address: string, days = 30) {
         return [];
     }
 }
+
+export async function fetchEtherlinkCounters(address: string): Promise<{
+    transactions_count: string;
+    token_transfers_count: string;
+    gas_usage_count: string;
+    validations_count: string;
+} | null> {
+    try {
+        const response = await rateLimitedEtherlinkFetch(
+            `https://explorer.etherlink.com/api/v2/addresses/${address}/counters`
+        );
+        if (response.ok) {
+            return await response.json();
+        }
+        return null;
+    } catch (error) {
+        console.error("[Etherlink] Error fetching address counters:", error);
+        return null;
+    }
+}

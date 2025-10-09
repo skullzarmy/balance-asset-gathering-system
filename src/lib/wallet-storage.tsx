@@ -77,6 +77,7 @@ export const walletStorage = {
             }
 
             // Check version to handle v1.0 vs v2.0 format
+            // If no version field, assume v1.0 for backward compatibility
             const isV2 = config.version === "2.0";
 
             const existingWallets = this.getWallets();

@@ -98,7 +98,7 @@ export interface LegacyWalletConfig {
 }
 
 export interface WalletExportConfig {
-    version: string;
-    exportDate: string;
+    version?: string; // Optional for v1.0 backward compatibility
+    exportDate?: string; // Optional for v1.0 backward compatibility
     wallets: LegacyWalletConfig[];
 }

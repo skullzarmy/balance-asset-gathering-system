@@ -2,8 +2,8 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PieChart, Pie } from "recharts";
-import { useState, useEffect } from "react";
-import { fetchTezosBalanceBreakdown, type TezosBalanceBreakdown } from "@/lib/blockchain/tezos";
+import { useQuery } from "@tanstack/react-query";
+import { queries } from "@/lib/queries";
 import type { TezosWallet } from "@/lib/types";
 import { Layers } from "lucide-react";
 import {
@@ -35,19 +35,7 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 export function TezosBalanceBreakdownChart({ wallet }: TezosBalanceBreakdownChartProps) {
-    const [breakdown, setBreakdown] = useState<TezosBalanceBreakdown | null>(null);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        const loadBreakdown = async () => {
-            setLoading(true);
-            const data = await fetchTezosBalanceBreakdown(wallet.address);
-            setBreakdown(data);
-            setLoading(false);
-        };
-
-        loadBreakdown();
-    }, [wallet.address]);
+    const { data: breakdown, isLoading: loading } = useQuery(queries.tezos.balanceBreakdown(wallet.address));
 
     if (loading) {
         return (
