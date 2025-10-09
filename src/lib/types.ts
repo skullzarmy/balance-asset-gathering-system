@@ -68,6 +68,16 @@ export interface DelegationDetails {
     estimatedRoi: number;
 }
 
+export interface WalletRewards {
+    cycle: number;
+    totalRewards: number;
+    futureRewards: number;
+    delegatedBalance: number;
+    stakingRewards: number;
+    delegatingRewards: number;
+    bakingPower: number;
+}
+
 export interface Transaction {
     hash: string;
     timestamp: number;

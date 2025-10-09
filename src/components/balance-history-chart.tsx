@@ -24,22 +24,40 @@ const chartConfig = {
 export function BalanceHistoryChart({ wallet }: BalanceHistoryChartProps) {
     const [timeframe, setTimeframe] = useState<"7d" | "30d" | "90d" | "all">("30d");
     const [data, setData] = useState<Array<{ date: string; balance: number }>>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         const loadData = async () => {
+            setLoading(true);
+            setError(null);
             try {
                 const days = timeframe === "all" ? 365 : Number.parseInt(timeframe.replace("d", ""));
+                console.log(`[BalanceHistoryChart] Loading ${days} days of history for ${wallet.address}`);
 
                 if (wallet.type === "tezos") {
                     const history = await fetchTezosHistory(wallet.address, days);
-                    setData(history);
+                    console.log(`[BalanceHistoryChart] Received ${history.length} history points`, history);
+                    const formattedData = history.map((point) => ({
+                        date: new Date(point.timestamp).toLocaleDateString(),
+                        balance: point.balance,
+                    }));
+                    console.log(`[BalanceHistoryChart] Formatted data:`, formattedData);
+                    setData(formattedData);
                 } else {
                     const history = await fetchEtherlinkHistory(wallet.address, days);
-                    setData(history);
+                    const formattedData = history.map((point) => ({
+                        date: new Date(point.timestamp).toLocaleDateString(),
+                        balance: point.balance,
+                    }));
+                    setData(formattedData);
                 }
-            } catch (error) {
-                console.error("Error loading balance history:", error);
+            } catch (err) {
+                console.error("Error loading balance history:", err);
+                setError("Failed to load balance history");
                 setData([]);
+            } finally {
+                setLoading(false);
             }
         };
         loadData();
@@ -65,27 +83,38 @@ export function BalanceHistoryChart({ wallet }: BalanceHistoryChartProps) {
                 </Select>
             </CardHeader>
             <CardContent>
-                <ChartContainer config={chartConfig} className="h-[300px] w-full">
-                    <AreaChart accessibilityLayer data={data}>
-                        <defs>
-                            <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.3} />
-                                <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0} />
-                            </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                        <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} />
-                        <YAxis tickLine={false} axisLine={false} tickMargin={8} />
-                        <ChartTooltip content={<ChartTooltipContent />} />
-                        <Area
-                            type="monotone"
-                            dataKey="balance"
-                            stroke="hsl(var(--chart-1))"
-                            fillOpacity={1}
-                            fill="url(#colorBalance)"
-                        />
-                    </AreaChart>
-                </ChartContainer>
+                {loading && (
+                    <div className="h-[300px] flex items-center justify-center text-muted-foreground">Loading...</div>
+                )}
+                {error && <div className="h-[300px] flex items-center justify-center text-destructive">{error}</div>}
+                {!loading && !error && data.length === 0 && (
+                    <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                        No data available
+                    </div>
+                )}
+                {!loading && !error && data.length > 0 && (
+                    <ChartContainer config={chartConfig} className="h-[300px] w-full">
+                        <AreaChart accessibilityLayer data={data}>
+                            <defs>
+                                <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.3} />
+                                    <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0} />
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                            <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} />
+                            <YAxis tickLine={false} axisLine={false} tickMargin={8} />
+                            <ChartTooltip content={<ChartTooltipContent />} />
+                            <Area
+                                type="monotone"
+                                dataKey="balance"
+                                stroke="hsl(var(--chart-1))"
+                                fillOpacity={1}
+                                fill="url(#colorBalance)"
+                            />
+                        </AreaChart>
+                    </ChartContainer>
+                )}
             </CardContent>
         </Card>
     );

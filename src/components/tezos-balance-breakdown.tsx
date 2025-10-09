@@ -1,7 +1,7 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Legend } from "recharts";
+import { PieChart, Pie } from "recharts";
 import { useState, useEffect } from "react";
 import { fetchTezosBalanceBreakdown, type TezosBalanceBreakdown } from "@/lib/blockchain/tezos";
 import type { TezosWallet } from "@/lib/types";
@@ -71,15 +71,6 @@ export function TezosBalanceBreakdownChart({ wallet }: TezosBalanceBreakdownChar
         return null;
     }
 
-    const chartData = [
-        {
-            name: "Balance",
-            spendable: breakdown.spendable,
-            staked: breakdown.staked,
-            unstaked: breakdown.unstaked,
-        },
-    ];
-
     const hasStaking = breakdown.staked > 0 || breakdown.unstaked > 0;
 
     return (
@@ -126,59 +117,40 @@ export function TezosBalanceBreakdownChart({ wallet }: TezosBalanceBreakdownChar
                         )}
                     </div>
 
-                    {/* Stacked Area Chart */}
+                    {/* Pie Chart */}
                     {hasStaking && (
-                        <ChartContainer config={chartConfig} className="h-[200px] w-full">
-                            <AreaChart accessibilityLayer data={chartData}>
-                                <defs>
-                                    <linearGradient id="spendableGradient" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.8} />
-                                        <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0.3} />
-                                    </linearGradient>
-                                    <linearGradient id="stakedGradient" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="hsl(var(--chart-2))" stopOpacity={0.8} />
-                                        <stop offset="95%" stopColor="hsl(var(--chart-2))" stopOpacity={0.3} />
-                                    </linearGradient>
-                                    <linearGradient id="unstakedGradient" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="hsl(var(--chart-3))" stopOpacity={0.8} />
-                                        <stop offset="95%" stopColor="hsl(var(--chart-3))" stopOpacity={0.3} />
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                <XAxis dataKey="name" tickLine={false} axisLine={false} tickMargin={8} />
-                                <YAxis tickLine={false} axisLine={false} tickMargin={8} />
+                        <ChartContainer config={chartConfig} className="h-[250px] w-full">
+                            <PieChart>
                                 <ChartTooltip
                                     content={
                                         <ChartTooltipContent formatter={(value: number) => `${value.toFixed(4)} XTZ`} />
                                     }
                                 />
-                                <ChartLegend content={<ChartLegendContent />} />
-                                <Area
-                                    type="monotone"
-                                    dataKey="spendable"
-                                    stackId="1"
-                                    stroke="hsl(var(--chart-1))"
-                                    fill="url(#spendableGradient)"
+                                <Pie
+                                    data={[
+                                        { name: "Spendable", value: breakdown.spendable, fill: "hsl(var(--chart-1))" },
+                                        ...(breakdown.staked > 0
+                                            ? [{ name: "Staked", value: breakdown.staked, fill: "hsl(var(--chart-2))" }]
+                                            : []),
+                                        ...(breakdown.unstaked > 0
+                                            ? [
+                                                  {
+                                                      name: "Unstaked",
+                                                      value: breakdown.unstaked,
+                                                      fill: "hsl(var(--chart-3))",
+                                                  },
+                                              ]
+                                            : []),
+                                    ]}
+                                    cx="50%"
+                                    cy="50%"
+                                    labelLine={false}
+                                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(1)}%`}
+                                    outerRadius={80}
+                                    dataKey="value"
                                 />
-                                {breakdown.staked > 0 && (
-                                    <Area
-                                        type="monotone"
-                                        dataKey="staked"
-                                        stackId="1"
-                                        stroke="hsl(var(--chart-2))"
-                                        fill="url(#stakedGradient)"
-                                    />
-                                )}
-                                {breakdown.unstaked > 0 && (
-                                    <Area
-                                        type="monotone"
-                                        dataKey="unstaked"
-                                        stackId="1"
-                                        stroke="hsl(var(--chart-3))"
-                                        fill="url(#unstakedGradient)"
-                                    />
-                                )}
-                            </AreaChart>
+                                <ChartLegend content={<ChartLegendContent />} />
+                            </PieChart>
                         </ChartContainer>
                     )}
 

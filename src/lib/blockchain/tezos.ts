@@ -1,5 +1,5 @@
 // Tezos blockchain integration utilities
-import type { TokenBalance, DelegationDetails } from "../types";
+import type { TokenBalance, DelegationDetails, WalletRewards } from "../types";
 import { rateLimitedTzKTFetch } from "../rate-limiter";
 
 export interface TezosBalanceBreakdown {
@@ -165,6 +165,79 @@ export async function fetchDelegationStatus(address: string) {
     }
 }
 
+export async function fetchWalletRewards(address: string): Promise<WalletRewards | null> {
+    try {
+        // Fetch last 10 cycles to find one with actual paid rewards
+        const response = await rateLimitedTzKTFetch(
+            `https://api.tzkt.io/v1/rewards/delegators/${address}?limit=10`
+        );
+        
+        if (!response.ok) return null;
+        
+        const data = await response.json();
+        if (!data || data.length === 0) return null;
+        
+        // Find first cycle with actual paid rewards (non-zero)
+        const rewardCycle = data.find((r: any) => {
+            const stakingRewards = (
+                (r.attestationRewardsStakedOwn || 0) +
+                (r.blockRewardsStakedOwn || 0) +
+                (r.dalAttestationRewardsStakedOwn || 0) +
+                (r.endorsementRewardsStakedOwn || 0)
+            );
+            const delegatingRewards = (
+                (r.attestationRewardsDelegated || 0) +
+                (r.blockRewardsDelegated || 0) +
+                (r.dalAttestationRewardsDelegated || 0) +
+                (r.endorsementRewardsDelegated || 0)
+            );
+            return (stakingRewards + delegatingRewards) > 0;
+        });
+        
+        // If no paid cycle found, use the most recent one for future rewards info
+        const reward = rewardCycle || data[0];
+        
+        // Calculate staking rewards (delegator's own staked rewards)
+        const stakingRewards = (
+            (reward.attestationRewardsStakedOwn || 0) +
+            (reward.blockRewardsStakedOwn || 0) +
+            (reward.dalAttestationRewardsStakedOwn || 0) +
+            (reward.endorsementRewardsStakedOwn || 0)
+        ) / 1_000_000;
+        
+        // Calculate delegating rewards (delegator's share from delegating)
+        const delegatingRewards = (
+            (reward.attestationRewardsDelegated || 0) +
+            (reward.blockRewardsDelegated || 0) +
+            (reward.dalAttestationRewardsDelegated || 0) +
+            (reward.endorsementRewardsDelegated || 0)
+        ) / 1_000_000;
+        
+        // Calculate future rewards from the current cycle
+        const currentCycle = data[0];
+        const futureRewards = (
+            (currentCycle.futureBlockRewards || 0) +
+            (currentCycle.futureEndorsementRewards || 0) +
+            (currentCycle.futureDalAttestationRewards || 0)
+        ) / 1_000_000;
+        
+        const totalRewards = stakingRewards + delegatingRewards;
+        
+        return {
+            cycle: reward.cycle,
+            totalRewards,
+            futureRewards,
+            delegatedBalance: (reward.delegatedBalance || 0) / 1_000_000,
+            stakingRewards,
+            delegatingRewards,
+            bakingPower: (reward.bakingPower || 0) / 1_000_000,
+        };
+    } catch (error) {
+        console.error("[v0] Error fetching wallet rewards:", error);
+        return null;
+    }
+}
+
 export async function fetchDelegationDetails(address: string): Promise<DelegationDetails | null> {
     try {
         const accountResponse = await rateLimitedTzKTFetch(`https://api.tzkt.io/v1/accounts/${address}`);
@@ -176,9 +249,10 @@ export async function fetchDelegationDetails(address: string): Promise<Delegatio
         const bakerAddress = accountData.delegate.address;
         const bakerAlias = accountData.delegate.alias || bakerAddress;
 
+        // Get baker details for staking info - MUST fetch baker's own account data
         const bakerResponse = await rateLimitedTzKTFetch(`https://api.tzkt.io/v1/delegates/${bakerAddress}`);
         if (!bakerResponse.ok) {
-            // If baker details fail, at least return what we have from account
+            console.error(`[v0] Failed to fetch baker data for ${bakerAddress}`);
             return {
                 baker: bakerAddress,
                 bakerName: bakerAlias,
@@ -190,30 +264,66 @@ export async function fetchDelegationDetails(address: string): Promise<Delegatio
             };
         }
         const bakerData = await bakerResponse.json();
+        console.log(`[v0] Baker ${bakerAddress} stakedBalance:`, bakerData.stakedBalance);
+
+        // Get rewards data for ROI and fee calculation
+        const rewardsResponse = await rateLimitedTzKTFetch(
+            `https://api.tzkt.io/v1/rewards/delegators/${address}?limit=1`
+        );
+
+        let estimatedRoi = 0;
+        let fee = 0;
+
+        if (rewardsResponse.ok) {
+            const rewardsData = await rewardsResponse.json();
+            if (rewardsData && rewardsData.length > 0) {
+                const reward = rewardsData[0];
+                const bakingPower = reward.bakingPower || 0;
+
+                // Calculate ROI from future rewards
+                const futureRewards =
+                    (reward.futureBlockRewards || 0) +
+                    (reward.futureEndorsementRewards || 0) +
+                    (reward.futureDalAttestationRewards || 0);
+
+                if (bakingPower > 0 && futureRewards > 0) {
+                    // Future rewards are for one cycle, annualize it (73 cycles per year approximately)
+                    const annualRewards = futureRewards * 73;
+                    estimatedRoi = annualRewards / bakingPower;
+                }
+
+                // Estimate fee from edge parameter (edgeOfBakingOverStaking)
+                const edge = bakerData.edgeOfBakingOverStaking || 0;
+                fee = edge / 1_000_000_000; // Convert from billionth to decimal
+            }
+        }
+
+        const totalStaked = (bakerData.totalStakedBalance || 0) / 1_000_000;
+        const bakerOwnStake = (bakerData.stakedBalance || 0) / 1_000_000; // Baker's own staked balance
+
+        // Calculate total capacity: baker's own stake + (own stake * limit multiplier)
+        // Formula: bakerOwnStake * (limitOfStakingOverBaking / 1_000_000 + 1)
+        // Example: 1,845.296303 * (9 + 1) = 18,452.96303 ꜩ total capacity
+        const limit = bakerData.limitOfStakingOverBaking || 9000000;
+        const stakingCapacity = bakerOwnStake * (limit / 1_000_000 + 1);
+        const freeSpace = Math.max(0, stakingCapacity - totalStaked);
 
         return {
             baker: bakerAddress,
             bakerName: bakerData.alias || bakerAlias,
-            stakingBalance: (bakerData.stakingBalance || 0) / 1_000_000,
-            stakingCapacity: (bakerData.stakingCapacity || 0) / 1_000_000,
-            freeSpace: (bakerData.freeSpace || 0) / 1_000_000,
-            fee: bakerData.fee || 0,
-            estimatedRoi: bakerData.estimatedRoi || 0,
+            stakingBalance: totalStaked,
+            stakingCapacity,
+            freeSpace,
+            fee,
+            estimatedRoi,
         };
     } catch (error) {
         console.error("[v0] Error fetching delegation details:", error);
         return null;
     }
 }
-
 export async function fetchTezosHistory(address: string, days = 30) {
     try {
-        // Use end of yesterday to avoid incomplete current day data
-        const now = new Date();
-        now.setHours(0, 0, 0, 0); // Start of today
-        const endTime = new Date(now.getTime() - 1); // End of yesterday (23:59:59.999)
-        const past = new Date(endTime.getTime() - days * 24 * 60 * 60 * 1000);
-
         // Calculate approximate number of blocks in the time range (30 seconds per block)
         const totalSeconds = days * 24 * 60 * 60;
         const estimatedBlocks = Math.floor(totalSeconds / 30);
@@ -228,26 +338,16 @@ export async function fetchTezosHistory(address: string, days = 30) {
 
         const data = await response.json();
 
-        // Filter to only include points within our date range (up to end of yesterday)
-        const filteredData = data
-            .filter((point: any) => {
-                const pointTime = new Date(point.timestamp).getTime();
-                return pointTime >= past.getTime() && pointTime <= endTime.getTime();
-            })
-            .map((point: any) => ({
-                level: point.level,
-                timestamp: new Date(point.timestamp).getTime(),
-                balance: point.balance / 1_000_000, // Convert from mutez to XTZ
-                usdValue: point.quote?.usd,
-                eurValue: point.quote?.eur,
-            }));
+        // Take the last N data points (most recent)
+        const recentData = data.slice(-150); // Limit to 150 most recent points
 
-        // Remove trailing zeros (incomplete current day data)
-        while (filteredData.length > 0 && filteredData[filteredData.length - 1].balance === 0) {
-            filteredData.pop();
-        }
-
-        return filteredData;
+        return recentData.map((point: any) => ({
+            level: point.level,
+            timestamp: new Date(point.timestamp).getTime(),
+            balance: point.balance / 1_000_000, // Convert from mutez to XTZ
+            usdValue: point.quote?.usd,
+            eurValue: point.quote?.eur,
+        }));
     } catch (error) {
         console.error("[Tezos] Error fetching balance history:", error);
         return [];
