@@ -402,31 +402,33 @@ export function WalletImportExport({
             </Dialog>
 
             {/* Export Button with Menu */}
-            <Dialog>
-                <DialogTrigger asChild>
-                    <Button variant="outline" size="icon" className="sm:w-auto sm:px-3" disabled={!hasWallets}>
-                        <Download className="h-4 w-4" />
-                        <span className="sr-only sm:not-sr-only sm:ml-2">Export</span>
-                    </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-sm">
-                    <DialogHeader>
-                        <DialogTitle>Export Wallets</DialogTitle>
-                        <DialogDescription>Choose your export format.</DialogDescription>
-                    </DialogHeader>
+            {hasWallets && (
+                <Dialog>
+                    <DialogTrigger asChild>
+                        <Button variant="outline" size="icon" className="sm:w-auto sm:px-3" disabled={!hasWallets}>
+                            <Download className="h-4 w-4" />
+                            <span className="sr-only sm:not-sr-only sm:ml-2">Export</span>
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-sm">
+                        <DialogHeader>
+                            <DialogTitle>Export Wallets</DialogTitle>
+                            <DialogDescription>Choose your export format.</DialogDescription>
+                        </DialogHeader>
 
-                    <div className="space-y-3">
-                        <Button variant="outline" className="w-full justify-start" onClick={handleExportJson}>
-                            <FileJson className="h-4 w-4 mr-2" />
-                            Download JSON File
-                        </Button>
-                        <Button variant="outline" className="w-full justify-start" onClick={handleExportQR}>
-                            <QrCode className="h-4 w-4 mr-2" />
-                            Show QR Code
-                        </Button>
-                    </div>
-                </DialogContent>
-            </Dialog>
+                        <div className="space-y-3">
+                            <Button variant="outline" className="w-full justify-start" onClick={handleExportJson}>
+                                <FileJson className="h-4 w-4 mr-2" />
+                                Download JSON File
+                            </Button>
+                            <Button variant="outline" className="w-full justify-start" onClick={handleExportQR}>
+                                <QrCode className="h-4 w-4 mr-2" />
+                                Show QR Code
+                            </Button>
+                        </div>
+                    </DialogContent>
+                </Dialog>
+            )}
 
             {/* QR Code Export Dialog */}
             <Dialog open={isExportOpen} onOpenChange={setIsExportOpen}>

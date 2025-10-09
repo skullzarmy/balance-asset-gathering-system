@@ -33,15 +33,15 @@ export function Header({ onAddWallet, onImportComplete, walletCount }: HeaderPro
                             className="text-primary-foreground group-hover:text-primary"
                         />
                     </div>
-                    <div className="min-w-0 hidden sm:block">
+                    <div className="min-w-0">
                         <h1 className="text-xl font-bold">{siteConfig.name}</h1>
-                        <p className="text-xs text-muted-foreground">{siteConfig.subtitle}</p>
+                        <p className="text-xs text-muted-foreground hidden sm:block">{siteConfig.subtitle}</p>
                     </div>
                 </a>
                 <div className="flex items-center gap-1 flex-shrink-0">
                     <WalletImportExport onImportComplete={onImportComplete} walletCount={walletCount} />
-                    <ThemeToggle />
                     <AddWalletDialog onAdd={onAddWallet} />
+                    <ThemeToggle />
                 </div>
             </div>
         </header>
