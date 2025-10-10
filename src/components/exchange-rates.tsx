@@ -3,6 +3,7 @@
 import type { PortfolioStats } from "@/lib/analytics";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp } from "lucide-react";
+import { TezosLogo } from "@/components/tezos-logo";
 
 interface ExchangeRatesProps {
     stats: PortfolioStats;
@@ -43,17 +44,44 @@ export function ExchangeRates({ stats }: ExchangeRatesProps) {
                             <div className="flex flex-wrap gap-4 text-sm">
                                 {xtzUsdPrice && xtzEurPrice && (
                                     <div className="text-muted-foreground">
-                                        1 ꜩ = ${xtzUsdPrice.toFixed(4)} • €{xtzEurPrice.toFixed(4)}
+                                        <div className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                                            <span className="flex items-center gap-1">
+                                                1{" "}
+                                                <TezosLogo
+                                                    size={14}
+                                                    variant="static"
+                                                    filled={true}
+                                                    className="text-current"
+                                                />{" "}
+                                                = ${xtzUsdPrice.toFixed(4)} • €{xtzEurPrice.toFixed(4)}
+                                            </span>
+                                        </div>
                                     </div>
                                 )}
                                 {xtzUsdPrice && (
-                                    <div className="text-muted-foreground">
-                                        1 USD = {(1 / xtzUsdPrice).toFixed(4)} ꜩ
+                                    <div className="text-xs text-muted-foreground">
+                                        <span className="flex items-center gap-1">
+                                            1 USD = {(1 / xtzUsdPrice).toFixed(4)}{" "}
+                                            <TezosLogo
+                                                size={12}
+                                                variant="static"
+                                                filled={true}
+                                                className="text-current"
+                                            />
+                                        </span>
                                     </div>
                                 )}
                                 {xtzEurPrice && (
-                                    <div className="text-muted-foreground">
-                                        1 EUR = {(1 / xtzEurPrice).toFixed(4)} ꜩ
+                                    <div className="text-xs text-muted-foreground">
+                                        <span className="flex items-center gap-1">
+                                            1 EUR = {(1 / xtzEurPrice).toFixed(4)}{" "}
+                                            <TezosLogo
+                                                size={12}
+                                                variant="static"
+                                                filled={true}
+                                                className="text-current"
+                                            />
+                                        </span>
                                     </div>
                                 )}
                             </div>

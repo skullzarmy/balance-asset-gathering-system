@@ -3,13 +3,19 @@
 import type { PortfolioStats } from "@/lib/analytics";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PieChart } from "lucide-react";
+import { TezosLogo } from "@/components/tezos-logo";
 
 interface BalanceBreakdownProps {
     stats: PortfolioStats;
 }
 
-function formatMultiCurrency(xtz: number, usd?: number, eur?: number): { primary: string; secondary: string } {
-    const xtzStr = `${xtz.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ꜩ`;
+function formatCurrency(xtz: number, usd?: number, eur?: number): { primary: JSX.Element; secondary: string } {
+    const xtzStr = (
+        <span className="flex items-center justify-end gap-1">
+            {xtz.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            <TezosLogo size={14} variant="static" filled={true} className="text-current" />
+        </span>
+    );
 
     if (!usd && !eur) {
         return { primary: xtzStr, secondary: "" };
@@ -58,20 +64,14 @@ export function BalanceBreakdown({ stats }: BalanceBreakdownProps) {
                             <span className="text-sm font-medium">Total Balance</span>
                             <div className="text-right">
                                 <div className="text-xl font-bold">
-                                    {
-                                        formatMultiCurrency(stats.tezosValue, stats.tezosValueUsd, stats.tezosValueEur)
-                                            .primary
-                                    }
+                                    {formatCurrency(stats.tezosValue, stats.tezosValueUsd, stats.tezosValueEur).primary}
                                 </div>
-                                {formatMultiCurrency(stats.tezosValue, stats.tezosValueUsd, stats.tezosValueEur)
+                                {formatCurrency(stats.tezosValue, stats.tezosValueUsd, stats.tezosValueEur)
                                     .secondary && (
                                     <div className="text-xs text-muted-foreground">
                                         {
-                                            formatMultiCurrency(
-                                                stats.tezosValue,
-                                                stats.tezosValueUsd,
-                                                stats.tezosValueEur
-                                            ).secondary
+                                            formatCurrency(stats.tezosValue, stats.tezosValueUsd, stats.tezosValueEur)
+                                                .secondary
                                         }
                                     </div>
                                 )}
@@ -84,14 +84,11 @@ export function BalanceBreakdown({ stats }: BalanceBreakdownProps) {
                             <span className="text-sm text-muted-foreground">Spendable</span>
                             <div className="text-right">
                                 <div className="text-sm font-medium">
-                                    {formatMultiCurrency(stats.totalSpendable, spendableUsd, spendableEur).primary}
+                                    {formatCurrency(stats.totalSpendable, spendableUsd, spendableEur).primary}
                                 </div>
-                                {formatMultiCurrency(stats.totalSpendable, spendableUsd, spendableEur).secondary && (
+                                {formatCurrency(stats.totalSpendable, spendableUsd, spendableEur).secondary && (
                                     <div className="text-xs text-muted-foreground">
-                                        {
-                                            formatMultiCurrency(stats.totalSpendable, spendableUsd, spendableEur)
-                                                .secondary
-                                        }
+                                        {formatCurrency(stats.totalSpendable, spendableUsd, spendableEur).secondary}
                                     </div>
                                 )}
                             </div>
@@ -101,11 +98,11 @@ export function BalanceBreakdown({ stats }: BalanceBreakdownProps) {
                             <span className="text-sm text-muted-foreground">Staked</span>
                             <div className="text-right">
                                 <div className="text-sm font-medium">
-                                    {formatMultiCurrency(stats.totalStaked, stakedUsd, stakedEur).primary}
+                                    {formatCurrency(stats.totalStaked, stakedUsd, stakedEur).primary}
                                 </div>
-                                {formatMultiCurrency(stats.totalStaked, stakedUsd, stakedEur).secondary && (
+                                {formatCurrency(stats.totalStaked, stakedUsd, stakedEur).secondary && (
                                     <div className="text-xs text-muted-foreground">
-                                        {formatMultiCurrency(stats.totalStaked, stakedUsd, stakedEur).secondary}
+                                        {formatCurrency(stats.totalStaked, stakedUsd, stakedEur).secondary}
                                     </div>
                                 )}
                             </div>
@@ -116,14 +113,11 @@ export function BalanceBreakdown({ stats }: BalanceBreakdownProps) {
                                 <span className="text-sm text-muted-foreground">Unstaking</span>
                                 <div className="text-right">
                                     <div className="text-sm font-medium">
-                                        {formatMultiCurrency(stats.totalUnstaked, unstakedUsd, unstakedEur).primary}
+                                        {formatCurrency(stats.totalUnstaked, unstakedUsd, unstakedEur).primary}
                                     </div>
-                                    {formatMultiCurrency(stats.totalUnstaked, unstakedUsd, unstakedEur).secondary && (
+                                    {formatCurrency(stats.totalUnstaked, unstakedUsd, unstakedEur).secondary && (
                                         <div className="text-xs text-muted-foreground">
-                                            {
-                                                formatMultiCurrency(stats.totalUnstaked, unstakedUsd, unstakedEur)
-                                                    .secondary
-                                            }
+                                            {formatCurrency(stats.totalUnstaked, unstakedUsd, unstakedEur).secondary}
                                         </div>
                                     )}
                                 </div>

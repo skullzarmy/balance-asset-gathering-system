@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { RefreshCw, Trash2, ExternalLink, Pencil, Check, X } from "lucide-react";
 import { useState } from "react";
 import { usePrefetch } from "@/hooks/use-prefetch";
+import { TezosLogo } from "@/components/tezos-logo";
 
 interface WalletCardProps {
     wallet: Wallet;
@@ -113,7 +114,14 @@ export function WalletCard({ wallet, onRefresh, onRemove, onUpdateLabel }: Walle
             <CardContent className="space-y-3">
                 <div>
                     <div className="text-2xl font-bold">
-                        {wallet.balance.toFixed(2)} {wallet.type === "tezos" ? "ꜩ" : "XTZ"}
+                        <span className="flex items-center gap-1">
+                            {wallet.balance.toFixed(2)}
+                            {wallet.type === "tezos" ? (
+                                <TezosLogo size={14} variant="static" filled={true} className="text-current" />
+                            ) : (
+                                "XTZ"
+                            )}
+                        </span>
                     </div>
                     {(wallet.usdValue || wallet.eurValue) && (
                         <div className="text-xs text-muted-foreground mt-1">
@@ -134,16 +142,25 @@ export function WalletCard({ wallet, onRefresh, onRemove, onUpdateLabel }: Walle
                         <div className="mt-3 space-y-1 text-xs">
                             <div className="flex justify-between">
                                 <span className="text-muted-foreground">Spendable:</span>
-                                <span className="font-medium">{wallet.spendableBalance.toFixed(2)} ꜩ</span>
+                                <span className="font-medium flex items-center gap-1">
+                                    {wallet.spendableBalance.toFixed(2)}
+                                    <TezosLogo size={14} variant="static" filled={true} className="text-current" />
+                                </span>
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-muted-foreground">Staked:</span>
-                                <span className="font-medium">{wallet.stakedBalance.toFixed(2)} ꜩ</span>
+                                <span className="font-medium flex items-center gap-1">
+                                    {wallet.stakedBalance.toFixed(2)}
+                                    <TezosLogo size={14} variant="static" filled={true} className="text-current" />
+                                </span>
                             </div>
                             {wallet.unstakedBalance > 0 && (
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Unstaking:</span>
-                                    <span className="font-medium">{wallet.unstakedBalance.toFixed(2)} ꜩ</span>
+                                    <span className="font-medium flex items-center gap-1">
+                                        {wallet.unstakedBalance.toFixed(2)}
+                                        <TezosLogo size={14} variant="static" filled={true} className="text-current" />
+                                    </span>
                                 </div>
                             )}
                         </div>

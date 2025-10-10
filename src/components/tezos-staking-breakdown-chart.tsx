@@ -3,6 +3,7 @@
 import type { Wallet } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PieChart, Pie, Cell } from "recharts";
+import { TezosLogo } from "@/components/tezos-logo";
 import { calculateTezosBreakdown } from "@/lib/analytics";
 import { PieChart as PieChartIcon } from "lucide-react";
 import {
@@ -105,7 +106,10 @@ export function TezosStakingBreakdownChart({ wallets }: TezosStakingBreakdownCha
                                 <div className="h-3 w-3 rounded-full" style={{ backgroundColor: item.fill }} />
                                 <span>{item.name}</span>
                             </div>
-                            <span className="font-semibold">{item.value.toFixed(2)} ꜩ</span>
+                            <span className="font-semibold flex items-center gap-1">
+                                {item.value.toFixed(2)}
+                                <TezosLogo size={14} variant="static" filled={true} className="text-current" />
+                            </span>
                         </div>
                     ))}
                 </div>

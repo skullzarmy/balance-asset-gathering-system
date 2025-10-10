@@ -3,16 +3,22 @@
 import type { PortfolioStats } from "@/lib/analytics";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DollarSign, Coins, Wallet, TrendingUp } from "lucide-react";
+import { TezosLogo } from "@/components/tezos-logo";
 
 interface PortfolioStatsProps {
     stats: PortfolioStats;
 }
 
-function formatMultiCurrency(xtz: number, usd?: number, eur?: number): { primary: string; secondary: string } {
-    const xtzStr = `${xtz.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ꜩ`;
+function formatMultiCurrency(xtz: number, usd?: number, eur?: number): { primary: JSX.Element; secondary: string } {
+    const xtzElement = (
+        <span className="flex items-center gap-1">
+            {xtz.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            <TezosLogo size={14} variant="static" filled={true} className="text-current" />
+        </span>
+    );
 
     if (!usd && !eur) {
-        return { primary: xtzStr, secondary: "" };
+        return { primary: xtzElement, secondary: "" };
     }
 
     const parts: string[] = [];
@@ -24,7 +30,7 @@ function formatMultiCurrency(xtz: number, usd?: number, eur?: number): { primary
     }
 
     return {
-        primary: xtzStr,
+        primary: xtzElement,
         secondary: `(${parts.join(" / ")})`,
     };
 }

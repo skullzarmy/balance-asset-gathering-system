@@ -13,7 +13,7 @@ import { Wallet, Shield } from "lucide-react";
 import { WalletCardSkeleton } from "@/components/ui/skeleton";
 
 export default function Home() {
-    const { wallets, loading, addWallet, removeWallet, refreshWallet, updateWalletLabel } = useWallets();
+    const { wallets, loading, addWallet, isRefreshingWallet } = useWallets();
     const { prefetchNextLikely } = usePrefetch();
 
     // Prefetch likely next data when wallets are loaded
@@ -78,12 +78,7 @@ export default function Home() {
                         </div>
                     </div>
                 ) : (
-                    <DashboardOverview
-                        wallets={wallets}
-                        onRefresh={refreshWallet}
-                        onRemove={removeWallet}
-                        onUpdateLabel={updateWalletLabel}
-                    />
+                    <DashboardOverview wallets={wallets} isRefreshing={isRefreshingWallet} />
                 )}
             </main>
             <Footer />

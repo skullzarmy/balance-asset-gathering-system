@@ -8,6 +8,7 @@ import { BalanceHistoryChart } from "./balance-history-chart";
 import { TezosBalanceBreakdownChart } from "./tezos-balance-breakdown";
 import { useQuery } from "@tanstack/react-query";
 import { queries } from "@/lib/queries";
+import { TezosLogo } from "@/components/tezos-logo";
 
 interface TezosWalletDetailsProps {
     wallet: TezosWallet;
@@ -40,14 +41,20 @@ export function TezosWalletDetails({ wallet }: TezosWalletDetailsProps) {
                             <div>
                                 <div className="text-sm text-muted-foreground mb-1">Staking Rewards</div>
                                 <div className="text-lg font-semibold text-green-500">
-                                    {rewards.stakingRewards.toFixed(6)} ꜩ
+                                    <span className="flex items-center gap-1">
+                                        {rewards.stakingRewards.toFixed(6)}
+                                        <TezosLogo size={14} variant="static" filled={true} className="text-current" />
+                                    </span>
                                 </div>
                                 <div className="text-xs text-muted-foreground">Baker's staked balance</div>
                             </div>
                             <div>
                                 <div className="text-sm text-muted-foreground mb-1">Delegating Rewards</div>
                                 <div className="text-lg font-semibold text-blue-500">
-                                    {rewards.delegatingRewards.toFixed(6)} ꜩ
+                                    <span className="flex items-center gap-1">
+                                        {rewards.delegatingRewards.toFixed(6)}
+                                        <TezosLogo size={14} variant="static" filled={true} className="text-current" />
+                                    </span>
                                 </div>
                                 <div className="text-xs text-muted-foreground">All delegators combined</div>
                             </div>
@@ -56,12 +63,18 @@ export function TezosWalletDetails({ wallet }: TezosWalletDetailsProps) {
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <div className="text-sm text-muted-foreground mb-1">Total Earned</div>
-                                <div className="text-lg font-bold">{rewards.totalRewards.toFixed(6)} ꜩ</div>
+                                <div className="text-lg font-bold flex items-center gap-1">
+                                    {rewards.totalRewards.toFixed(6)}
+                                    <TezosLogo size={16} variant="static" filled={true} className="text-current" />
+                                </div>
                             </div>
                             <div>
                                 <div className="text-sm text-muted-foreground mb-1">Next Cycle (Est.)</div>
                                 <div className="text-lg font-semibold text-purple-500">
-                                    {rewards.futureRewards.toFixed(6)} ꜩ
+                                    <span className="flex items-center gap-1">
+                                        {rewards.futureRewards.toFixed(6)}
+                                        <TezosLogo size={14} variant="static" filled={true} className="text-current" />
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -69,7 +82,10 @@ export function TezosWalletDetails({ wallet }: TezosWalletDetailsProps) {
                         {rewards.bakingPower > 0 && (
                             <div>
                                 <div className="text-sm text-muted-foreground mb-1">Total Baking Power</div>
-                                <div className="text-base font-medium">{rewards.bakingPower.toLocaleString()} ꜩ</div>
+                                <div className="text-base font-medium flex items-center gap-1">
+                                    {rewards.bakingPower.toLocaleString()}
+                                    <TezosLogo size={14} variant="static" filled={true} className="text-current" />
+                                </div>
                             </div>
                         )}
                     </CardContent>
@@ -135,7 +151,7 @@ export function TezosWalletDetails({ wallet }: TezosWalletDetailsProps) {
                                     className="flex items-center justify-between"
                                 >
                                     <div className="flex items-center gap-3">
-                                        {token.thumbnailUri && token.thumbnailUri.startsWith("ipfs://") ? (
+                                        {token.thumbnailUri?.startsWith("ipfs://") ? (
                                             <img
                                                 src={token.thumbnailUri.replace("ipfs://", "https://ipfs.io/ipfs/")}
                                                 alt={token.symbol}
@@ -148,9 +164,7 @@ export function TezosWalletDetails({ wallet }: TezosWalletDetailsProps) {
                                         ) : null}
                                         <div
                                             className={`h-8 w-8 rounded-full bg-muted flex items-center justify-center ${
-                                                token.thumbnailUri && token.thumbnailUri.startsWith("ipfs://")
-                                                    ? "hidden"
-                                                    : ""
+                                                token.thumbnailUri?.startsWith("ipfs://") ? "hidden" : ""
                                             }`}
                                         >
                                             <Coins className="h-4 w-4 text-muted-foreground" />

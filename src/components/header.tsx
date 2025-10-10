@@ -38,10 +38,17 @@ export function Header({ onAddWallet, onImportComplete, walletCount }: HeaderPro
                         <p className="text-xs text-muted-foreground hidden sm:block">{siteConfig.subtitle}</p>
                     </div>
                 </a>
-                <div className="flex items-center gap-1 flex-shrink-0">
-                    <WalletImportExport onImportComplete={onImportComplete} walletCount={walletCount} />
-                    <AddWalletDialog onAdd={onAddWallet} />
-                    <ThemeToggle />
+                <div className="flex items-center gap-2 flex-shrink-0">
+                    {/* Wallet Management Group */}
+                    <div className="flex items-center gap-1 p-1 rounded-lg bg-muted/30 border border-border/50">
+                        <WalletImportExport onImportComplete={onImportComplete} walletCount={walletCount} />
+                        <AddWalletDialog onAdd={onAddWallet} />
+                    </div>
+
+                    {/* Settings Group */}
+                    <div className="flex items-center p-1 rounded-lg bg-muted/30 border border-border/50">
+                        <ThemeToggle />
+                    </div>
                 </div>
             </div>
         </header>

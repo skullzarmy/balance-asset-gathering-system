@@ -21,29 +21,33 @@ import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { CopyButton } from "@/components/ui/copy-button";
 import { TezosWalletDetails } from "./tezos-wallet-details";
 import { EtherlinkWalletDetails } from "./etherlink-wallet-details";
+import { useWallets } from "@/hooks/use-wallets";
+import { TezosLogo } from "@/components/tezos-logo";
+import { Etherlink } from "@/components/etherlink-logo";
 
 interface WalletsTableProps {
     wallets: Wallet[];
     xtzUsdPrice?: number | null;
     xtzEurPrice?: number | null;
-    onRefresh?: (id: string) => Promise<void>;
-    onRemove?: (id: string) => void;
-    onUpdateLabel?: (id: string, label: string) => void;
 }
 
 type SortField = "name" | "type" | "balance" | "spendable" | "staked" | "unstaking" | "baker";
 type SortDirection = "asc" | "desc" | null;
 
-function formatMultiCurrency(
+function formatCurrency(
     amount: number,
     usdPrice?: number | null,
     eurPrice?: number | null
-): { primary: string; secondary: string } {
-    const amountStr = `${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${
-        amount === 0 ? "XTZ" : "ꜩ"
-    }`;
+): { primary: JSX.Element; secondary: string } {
+    const amountStr = (
+        <span className="flex items-center gap-1">
+            {amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            <TezosLogo size={14} variant="static" filled={true} className="text-current" />
+        </span>
+    );
 
     if (!usdPrice && !eurPrice) {
         return { primary: amountStr, secondary: "" };
@@ -61,18 +65,12 @@ function formatMultiCurrency(
 
     return {
         primary: amountStr,
-        secondary: parts.join(" / "),
+        secondary: `(${parts.join(" / ")})`,
     };
 }
 
-export function WalletsTable({
-    wallets,
-    xtzUsdPrice,
-    xtzEurPrice,
-    onRefresh,
-    onRemove,
-    onUpdateLabel,
-}: WalletsTableProps) {
+export function WalletsTable({ wallets, xtzUsdPrice, xtzEurPrice }: WalletsTableProps) {
+    const { refreshWallet, removeWallet, updateWalletLabel } = useWallets();
     const [sortField, setSortField] = useState<SortField | null>(null);
     const [sortDirection, setSortDirection] = useState<SortDirection>(null);
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -162,7 +160,7 @@ export function WalletsTable({
             <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 -ml-3 font-semibold hover:bg-muted/50"
+                className="h-8 -ml-3 font-bold hover:bg-muted/50 hover:text-primary transition-all duration-200"
                 onClick={() => handleSort(field)}
             >
                 {children}
@@ -189,8 +187,8 @@ export function WalletsTable({
                     };
 
                     const handleSave = () => {
-                        if (onUpdateLabel && editLabel.trim()) {
-                            onUpdateLabel(wallet.id, editLabel.trim());
+                        if (editLabel.trim()) {
+                            updateWalletLabel(wallet.id, editLabel.trim());
                         }
                         setEditingId(null);
                     };
@@ -201,9 +199,11 @@ export function WalletsTable({
                     };
 
                     const handleRefresh = async () => {
-                        if (onRefresh) {
+                        try {
                             setRefreshingId(wallet.id);
-                            await onRefresh(wallet.id);
+                            await refreshWallet(wallet.id);
+                            setRefreshingId(null);
+                        } catch {
                             setRefreshingId(null);
                         }
                     };
@@ -216,7 +216,10 @@ export function WalletsTable({
                     const totalTokens = wallet.tokens ? wallet.tokens.length : 0;
 
                     return (
-                        <Card key={wallet.id} className="bg-card/50 backdrop-blur border-border/50">
+                        <Card
+                            key={wallet.id}
+                            className="bg-card/50 backdrop-blur border-border/50 hover:bg-card/70 hover:border-primary/20 transition-all duration-200 hover:shadow-lg hover:shadow-primary/5"
+                        >
                             <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
                                 <div className="space-y-1 flex-1">
                                     {isEditing ? (
@@ -234,7 +237,7 @@ export function WalletsTable({
                                         </div>
                                     ) : (
                                         <div className="flex items-center gap-2">
-                                            <CardTitle className="text-base font-medium">{wallet.label}</CardTitle>
+                                            <CardTitle className="text-lg font-bold">{wallet.label}</CardTitle>
                                         </div>
                                     )}
                                     <div className="flex items-center gap-2">
@@ -242,22 +245,27 @@ export function WalletsTable({
                                             <span className="text-xs text-muted-foreground">{wallet.tezDomain}</span>
                                         ) : (
                                             <code className="text-xs text-muted-foreground">
-                                                {wallet.address.slice(0, 8)}...{wallet.address.slice(-6)}
+                                                {wallet.address.slice(0, 6)}...{wallet.address.slice(-6)}
                                             </code>
                                         )}
+                                        <CopyButton text={wallet.address} size="sm" className="h-4 w-4 p-0" />
                                         <a href={explorerUrl} target="_blank" rel="noopener noreferrer">
                                             <ExternalLink className="h-3 w-3 text-muted-foreground hover:text-foreground" />
                                         </a>
                                     </div>
                                     {wallet.type === "tezos" && wallet.delegationDetails && (
-                                        <div className="text-xs text-muted-foreground">
-                                            Baker:{" "}
-                                            {wallet.delegationDetails.bakerName ||
-                                                wallet.delegationDetails.baker.slice(0, 10)}
+                                        <div className="text-xs">
+                                            <span className="text-muted-foreground">Baker: </span>
+                                            <span className="text-blue-600 dark:text-blue-400 font-medium">
+                                                {wallet.delegationDetails.bakerName ||
+                                                    wallet.delegationDetails.baker.slice(0, 10)}
+                                            </span>
                                         </div>
                                     )}
                                     {wallet.type === "tezos" && wallet.status === "undelegated" && (
-                                        <div className="text-xs text-muted-foreground">Not delegated</div>
+                                        <div className="text-xs">
+                                            <span className="text-orange-600 font-medium">Not delegated</span>
+                                        </div>
                                     )}
                                 </div>
                                 <Badge variant={wallet.type === "tezos" ? "default" : "secondary"}>
@@ -266,8 +274,20 @@ export function WalletsTable({
                             </CardHeader>
                             <CardContent className="space-y-3">
                                 <div>
-                                    <div className="text-2xl font-bold">
-                                        {wallet.balance.toFixed(2)} {wallet.type === "tezos" ? "ꜩ" : "XTZ"}
+                                    <div className="text-3xl font-bold text-foreground">
+                                        <span className="flex items-center gap-1">
+                                            {wallet.balance.toFixed(2)}
+                                            {wallet.type === "tezos" ? (
+                                                <TezosLogo
+                                                    size={14}
+                                                    variant="static"
+                                                    filled={true}
+                                                    className="text-current"
+                                                />
+                                            ) : (
+                                                "XTZ"
+                                            )}
+                                        </span>
                                     </div>
                                     {(wallet.usdValue || wallet.eurValue) && (
                                         <div className="text-xs text-muted-foreground mt-1">
@@ -288,19 +308,45 @@ export function WalletsTable({
                                         <div className="mt-3 space-y-1 text-xs">
                                             <div className="flex justify-between">
                                                 <span className="text-muted-foreground">Spendable:</span>
-                                                <span className="font-medium">
-                                                    {wallet.spendableBalance.toFixed(2)} ꜩ
+                                                <span className="font-medium text-emerald-600">
+                                                    <span className="font-medium text-green-600 dark:text-green-400 flex items-center gap-1">
+                                                        {wallet.spendableBalance.toFixed(2)}
+                                                        <TezosLogo
+                                                            size={12}
+                                                            variant="static"
+                                                            filled={true}
+                                                            className="text-current"
+                                                        />
+                                                    </span>
                                                 </span>
                                             </div>
                                             <div className="flex justify-between">
                                                 <span className="text-muted-foreground">Staked:</span>
-                                                <span className="font-medium">{wallet.stakedBalance.toFixed(2)} ꜩ</span>
+                                                <span className="font-medium text-purple-600">
+                                                    <span className="flex items-center gap-1">
+                                                        {wallet.stakedBalance.toFixed(2)}
+                                                        <TezosLogo
+                                                            size={14}
+                                                            variant="static"
+                                                            filled={true}
+                                                            className="text-current"
+                                                        />
+                                                    </span>
+                                                </span>
                                             </div>
                                             {wallet.unstakedBalance > 0 && (
                                                 <div className="flex justify-between">
                                                     <span className="text-muted-foreground">Unstaking:</span>
-                                                    <span className="font-medium">
-                                                        {wallet.unstakedBalance.toFixed(2)} ꜩ
+                                                    <span className="font-medium text-orange-600">
+                                                        <span className="flex items-center gap-1">
+                                                            {wallet.unstakedBalance.toFixed(2)}
+                                                            <TezosLogo
+                                                                size={14}
+                                                                variant="static"
+                                                                filled={true}
+                                                                className="text-current"
+                                                            />
+                                                        </span>
                                                     </span>
                                                 </div>
                                             )}
@@ -316,12 +362,21 @@ export function WalletsTable({
                                                         ? "secondary"
                                                         : "outline"
                                                 }
-                                                className="text-xs"
+                                                className={`text-xs ${
+                                                    wallet.status === "staked"
+                                                        ? "bg-purple-500/10 text-purple-600 border-purple-500/20"
+                                                        : wallet.status === "delegated"
+                                                        ? "bg-blue-500/10 text-blue-600 border-blue-500/20"
+                                                        : "bg-gray-500/10 text-gray-600 border-gray-500/20"
+                                                }`}
                                             >
                                                 {wallet.status}
                                             </Badge>
                                             {totalTokens > 0 && (
-                                                <Badge variant="outline" className="text-xs">
+                                                <Badge
+                                                    variant="outline"
+                                                    className="text-xs bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                                                >
                                                     {totalTokens} token{totalTokens !== 1 ? "s" : ""}
                                                 </Badge>
                                             )}
@@ -332,7 +387,11 @@ export function WalletsTable({
                                 <div className="flex gap-2">
                                     <Dialog>
                                         <DialogTrigger asChild>
-                                            <Button size="sm" variant="outline" className="flex-1 bg-transparent">
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="flex-1 bg-transparent hover:bg-primary/10 hover:border-primary/30 transition-all duration-200"
+                                            >
                                                 <Eye className="h-3 w-3 mr-1" />
                                                 View
                                             </Button>
@@ -350,37 +409,43 @@ export function WalletsTable({
                                     </Dialog>
                                     {isEditing ? (
                                         <>
-                                            <Button size="sm" variant="outline" onClick={handleSave}>
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={handleSave}
+                                                className="hover:bg-emerald-500/10 hover:border-emerald-500/30 transition-all duration-200"
+                                            >
                                                 <Check className="h-3 w-3" />
                                             </Button>
-                                            <Button size="sm" variant="outline" onClick={handleCancel}>
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={handleCancel}
+                                                className="hover:bg-red-500/10 hover:border-red-500/30 transition-all duration-200"
+                                            >
                                                 <X className="h-3 w-3" />
                                             </Button>
                                         </>
                                     ) : (
                                         <>
-                                            {onUpdateLabel && (
-                                                <Button size="sm" variant="outline" onClick={handleEdit}>
-                                                    <Pencil className="h-3 w-3" />
-                                                </Button>
-                                            )}
-                                            {onRefresh && (
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    onClick={handleRefresh}
-                                                    disabled={isRefreshing}
-                                                >
-                                                    <RefreshCw
-                                                        className={`h-3 w-3 ${isRefreshing ? "animate-spin" : ""}`}
-                                                    />
-                                                </Button>
-                                            )}
-                                            {onRemove && (
-                                                <Button size="sm" variant="outline" onClick={() => onRemove(wallet.id)}>
-                                                    <Trash2 className="h-3 w-3" />
-                                                </Button>
-                                            )}
+                                            <Button size="sm" variant="outline" onClick={handleEdit}>
+                                                <Pencil className="h-3 w-3" />
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={handleRefresh}
+                                                disabled={isRefreshing}
+                                                className="hover:bg-primary/10 hover:border-primary/30 transition-all duration-200"
+                                            >
+                                                <RefreshCw
+                                                    className={`h-3 w-3 ${isRefreshing ? "animate-spin" : ""}`}
+                                                />
+                                                {isRefreshing && <span className="ml-1 text-xs">Updating...</span>}
+                                            </Button>
+                                            <Button size="sm" variant="outline" onClick={() => removeWallet(wallet.id)}>
+                                                <Trash2 className="h-3 w-3" />
+                                            </Button>
                                         </>
                                     )}
                                 </div>
@@ -393,7 +458,7 @@ export function WalletsTable({
             {/* Desktop Table View */}
             <Card className="bg-card/50 backdrop-blur border-border/50 hidden md:block">
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
+                    <CardTitle className="text-xl font-bold flex items-center gap-2">
                         <WalletIcon className="h-5 w-5" />
                         Wallets Overview
                     </CardTitle>
@@ -435,16 +500,6 @@ export function WalletsTable({
                             </TableHeader>
                             <TableBody>
                                 {sortedWallets.map((wallet) => {
-                                    const bakerInfo =
-                                        wallet.type === "tezos"
-                                            ? wallet.delegationDetails
-                                                ? wallet.delegationDetails.bakerName ||
-                                                  wallet.delegationDetails.baker.slice(0, 10)
-                                                : wallet.status === "undelegated"
-                                                ? "Not delegated"
-                                                : wallet.delegatedTo || "-"
-                                            : "-";
-
                                     const spendable =
                                         wallet.type === "tezos" ? wallet.spendableBalance : wallet.balance;
                                     const staked = wallet.type === "tezos" ? wallet.stakedBalance : 0;
@@ -458,8 +513,8 @@ export function WalletsTable({
                                     };
 
                                     const handleSave = () => {
-                                        if (onUpdateLabel && editLabel.trim()) {
-                                            onUpdateLabel(wallet.id, editLabel.trim());
+                                        if (editLabel.trim()) {
+                                            updateWalletLabel(wallet.id, editLabel.trim());
                                         }
                                         setEditingId(null);
                                     };
@@ -470,15 +525,20 @@ export function WalletsTable({
                                     };
 
                                     const handleRefresh = async () => {
-                                        if (onRefresh) {
+                                        try {
                                             setRefreshingId(wallet.id);
-                                            await onRefresh(wallet.id);
+                                            await refreshWallet(wallet.id);
+                                            setRefreshingId(null);
+                                        } catch {
                                             setRefreshingId(null);
                                         }
                                     };
 
                                     return (
-                                        <TableRow key={wallet.id}>
+                                        <TableRow
+                                            key={wallet.id}
+                                            className="hover:bg-muted/30 transition-colors duration-200"
+                                        >
                                             <TableCell className="font-medium">
                                                 {isEditing ? (
                                                     <div className="flex items-center gap-2">
@@ -495,106 +555,111 @@ export function WalletsTable({
                                                     </div>
                                                 ) : (
                                                     <div>
-                                                        <div>{wallet.label}</div>
+                                                        <div className="font-semibold text-base">{wallet.label}</div>
                                                         {wallet.type === "tezos" && wallet.tezDomain && (
                                                             <div className="text-xs text-muted-foreground">
                                                                 {wallet.tezDomain}
                                                             </div>
                                                         )}
-                                                        {wallet.type === "tezos" && (
+                                                        <div className="flex items-center gap-1">
                                                             <div className="text-xs text-muted-foreground font-mono">
-                                                                {wallet.address.slice(0, 10)}...
+                                                                {wallet.address.slice(0, 6)}...
                                                                 {wallet.address.slice(-6)}
                                                             </div>
-                                                        )}
-                                                        {wallet.type === "etherlink" && (
-                                                            <div className="text-xs text-muted-foreground font-mono">
-                                                                {wallet.address.slice(0, 10)}...
-                                                                {wallet.address.slice(-6)}
-                                                            </div>
-                                                        )}
+                                                            <CopyButton
+                                                                text={wallet.address}
+                                                                size="sm"
+                                                                className="h-3 w-3 p-0"
+                                                            />
+                                                        </div>
                                                     </div>
                                                 )}
                                             </TableCell>
                                             <TableCell>
-                                                <div className="text-sm capitalize">{wallet.type}</div>
+                                                <div className="flex items-center justify-center">
+                                                    {wallet.type === "tezos" ? (
+                                                        <TezosLogo
+                                                            size={20}
+                                                            variant="static"
+                                                            filled={true}
+                                                            className="text-blue-600 dark:text-blue-400"
+                                                        />
+                                                    ) : (
+                                                        <Etherlink className="h-8 w-8" />
+                                                    )}
+                                                </div>
                                             </TableCell>
                                             {hasTezosWallets && (
                                                 <TableCell>
-                                                    <div className="text-sm">{bakerInfo}</div>
+                                                    {wallet.type === "tezos" && wallet.delegationDetails ? (
+                                                        <div className="text-sm text-blue-600 dark:text-blue-400 font-medium">
+                                                            {wallet.delegationDetails.bakerName ||
+                                                                wallet.delegationDetails.baker.slice(0, 10)}
+                                                        </div>
+                                                    ) : wallet.type === "tezos" && wallet.delegatedTo ? (
+                                                        <div className="text-sm text-blue-600 dark:text-blue-400 font-medium">
+                                                            {wallet.delegatedTo.slice(0, 10)}
+                                                        </div>
+                                                    ) : wallet.type === "tezos" ? (
+                                                        <span className="text-sm text-orange-600 font-medium">
+                                                            Not delegated
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-sm text-muted-foreground">-</span>
+                                                    )}
                                                 </TableCell>
                                             )}
                                             <TableCell className="text-right">
-                                                <div className="text-sm font-medium">
-                                                    {
-                                                        formatMultiCurrency(wallet.balance, xtzUsdPrice, xtzEurPrice)
-                                                            .primary
-                                                    }
+                                                <div className="text-sm font-medium flex items-center justify-end gap-1">
+                                                    {formatCurrency(wallet.balance, xtzUsdPrice, xtzEurPrice).primary}
                                                 </div>
-                                                {formatMultiCurrency(wallet.balance, xtzUsdPrice, xtzEurPrice)
-                                                    .secondary && (
+                                                {formatCurrency(wallet.balance, xtzUsdPrice, xtzEurPrice).secondary && (
                                                     <div className="text-xs text-muted-foreground">
                                                         {
-                                                            formatMultiCurrency(
-                                                                wallet.balance,
-                                                                xtzUsdPrice,
-                                                                xtzEurPrice
-                                                            ).secondary
-                                                        }
-                                                    </div>
-                                                )}
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                <div className="text-sm">
-                                                    {formatMultiCurrency(spendable, xtzUsdPrice, xtzEurPrice).primary}
-                                                </div>
-                                                {formatMultiCurrency(spendable, xtzUsdPrice, xtzEurPrice).secondary && (
-                                                    <div className="text-xs text-muted-foreground">
-                                                        {
-                                                            formatMultiCurrency(spendable, xtzUsdPrice, xtzEurPrice)
+                                                            formatCurrency(wallet.balance, xtzUsdPrice, xtzEurPrice)
                                                                 .secondary
                                                         }
                                                     </div>
                                                 )}
                                             </TableCell>
+                                            <TableCell className="text-center">
+                                                <div className="text-sm text-emerald-600 font-medium flex items-center justify-center">
+                                                    {formatCurrency(spendable, xtzUsdPrice, xtzEurPrice).primary}
+                                                </div>
+                                                {formatCurrency(spendable, xtzUsdPrice, xtzEurPrice).secondary && (
+                                                    <div className="text-xs text-muted-foreground text-center">
+                                                        {formatCurrency(spendable, xtzUsdPrice, xtzEurPrice).secondary}
+                                                    </div>
+                                                )}
+                                            </TableCell>
                                             {hasTezosWallets && (
                                                 <>
-                                                    <TableCell className="text-right">
-                                                        <div className="text-sm">
-                                                            {
-                                                                formatMultiCurrency(staked, xtzUsdPrice, xtzEurPrice)
-                                                                    .primary
-                                                            }
+                                                    <TableCell className="text-center">
+                                                        <div className="text-sm text-purple-600 font-medium flex items-center justify-center">
+                                                            {formatCurrency(staked, xtzUsdPrice, xtzEurPrice).primary}
                                                         </div>
-                                                        {formatMultiCurrency(staked, xtzUsdPrice, xtzEurPrice)
-                                                            .secondary && (
+                                                        {formatCurrency(staked, xtzUsdPrice, xtzEurPrice).secondary && (
                                                             <div className="text-xs text-muted-foreground">
                                                                 {
-                                                                    formatMultiCurrency(
-                                                                        staked,
-                                                                        xtzUsdPrice,
-                                                                        xtzEurPrice
-                                                                    ).secondary
+                                                                    formatCurrency(staked, xtzUsdPrice, xtzEurPrice)
+                                                                        .secondary
                                                                 }
                                                             </div>
                                                         )}
                                                     </TableCell>
-                                                    <TableCell className="text-right">
-                                                        <div className="text-sm">
+                                                    <TableCell className="text-center">
+                                                        <div className="text-sm text-orange-600 font-medium flex items-center justify-center">
                                                             {
-                                                                formatMultiCurrency(unstaking, xtzUsdPrice, xtzEurPrice)
+                                                                formatCurrency(unstaking, xtzUsdPrice, xtzEurPrice)
                                                                     .primary
                                                             }
                                                         </div>
-                                                        {formatMultiCurrency(unstaking, xtzUsdPrice, xtzEurPrice)
+                                                        {formatCurrency(unstaking, xtzUsdPrice, xtzEurPrice)
                                                             .secondary && (
                                                             <div className="text-xs text-muted-foreground">
                                                                 {
-                                                                    formatMultiCurrency(
-                                                                        unstaking,
-                                                                        xtzUsdPrice,
-                                                                        xtzEurPrice
-                                                                    ).secondary
+                                                                    formatCurrency(unstaking, xtzUsdPrice, xtzEurPrice)
+                                                                        .secondary
                                                                 }
                                                             </div>
                                                         )}
@@ -605,7 +670,11 @@ export function WalletsTable({
                                                 <div className="flex items-center gap-1">
                                                     <Dialog>
                                                         <DialogTrigger asChild>
-                                                            <Button size="icon" variant="ghost" className="h-11 w-11">
+                                                            <Button
+                                                                size="icon"
+                                                                variant="ghost"
+                                                                className="h-11 w-11 hover:bg-primary/10 transition-all duration-200"
+                                                            >
                                                                 <Eye className="h-4 w-4" />
                                                             </Button>
                                                         </DialogTrigger>
@@ -641,41 +710,35 @@ export function WalletsTable({
                                                         </>
                                                     ) : (
                                                         <>
-                                                            {onUpdateLabel && (
-                                                                <Button
-                                                                    size="icon"
-                                                                    variant="ghost"
-                                                                    className="h-11 w-11"
-                                                                    onClick={handleEdit}
-                                                                >
-                                                                    <Pencil className="h-4 w-4" />
-                                                                </Button>
-                                                            )}
-                                                            {onRefresh && (
-                                                                <Button
-                                                                    size="icon"
-                                                                    variant="ghost"
-                                                                    className="h-11 w-11"
-                                                                    onClick={handleRefresh}
-                                                                    disabled={isRefreshing}
-                                                                >
-                                                                    <RefreshCw
-                                                                        className={`h-4 w-4 ${
-                                                                            isRefreshing ? "animate-spin" : ""
-                                                                        }`}
-                                                                    />
-                                                                </Button>
-                                                            )}
-                                                            {onRemove && (
-                                                                <Button
-                                                                    size="icon"
-                                                                    variant="ghost"
-                                                                    className="h-11 w-11"
-                                                                    onClick={() => onRemove(wallet.id)}
-                                                                >
-                                                                    <Trash2 className="h-4 w-4" />
-                                                                </Button>
-                                                            )}
+                                                            <Button
+                                                                size="icon"
+                                                                variant="ghost"
+                                                                className="h-11 w-11"
+                                                                onClick={handleEdit}
+                                                            >
+                                                                <Pencil className="h-4 w-4" />
+                                                            </Button>
+                                                            <Button
+                                                                size="icon"
+                                                                variant="ghost"
+                                                                className="h-11 w-11"
+                                                                onClick={handleRefresh}
+                                                                disabled={isRefreshing}
+                                                            >
+                                                                <RefreshCw
+                                                                    className={`h-4 w-4 ${
+                                                                        isRefreshing ? "animate-spin" : ""
+                                                                    }`}
+                                                                />
+                                                            </Button>
+                                                            <Button
+                                                                size="icon"
+                                                                variant="ghost"
+                                                                className="h-11 w-11"
+                                                                onClick={() => removeWallet(wallet.id)}
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
                                                         </>
                                                     )}
                                                 </div>

@@ -299,7 +299,7 @@ export async function fetchDelegationDetails(address: string): Promise<Delegatio
 
         // Calculate total capacity: baker's own stake + (own stake * limit multiplier)
         // Formula: bakerOwnStake * (limitOfStakingOverBaking / 1_000_000 + 1)
-        // Example: 1,845.296303 * (9 + 1) = 18,452.96303 ꜩ total capacity
+        // Example: 1,845.296303 * (9 + 1) = 18,452.96303 XTZ total capacity
         const limit = bakerData.limitOfStakingOverBaking || 9000000;
         const stakingCapacity = bakerOwnStake * (limit / 1_000_000 + 1);
         const freeSpace = Math.max(0, stakingCapacity - totalStaked);
