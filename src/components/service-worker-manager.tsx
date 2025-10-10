@@ -12,10 +12,15 @@ export default function ServiceWorkerManager() {
 
     useEffect(() => {
         if (typeof window !== "undefined" && "serviceWorker" in navigator) {
-            // Register service worker
+            // Wait for the service worker to be ready (next-pwa handles registration)
             navigator.serviceWorker.ready.then((reg) => {
                 setRegistration(reg);
                 console.log("Service Worker ready:", reg);
+
+                // Check if there's a waiting service worker
+                if (reg.waiting) {
+                    setUpdateAvailable(true);
+                }
             });
 
             // Listen for updates
@@ -24,18 +29,17 @@ export default function ServiceWorkerManager() {
                 window.location.reload();
             });
 
-            // Check for waiting service worker
-            navigator.serviceWorker.ready.then((reg) => {
-                if (reg.waiting) {
-                    setUpdateAvailable(true);
-                }
-            });
-
             // Listen for new service worker installing
-            navigator.serviceWorker.addEventListener("message", (event) => {
-                if (event.data && event.data.type === "SKIP_WAITING") {
-                    setUpdateAvailable(true);
-                }
+            navigator.serviceWorker.addEventListener("updatefound", () => {
+                navigator.serviceWorker.ready.then((reg) => {
+                    if (reg.installing) {
+                        reg.installing.addEventListener("statechange", () => {
+                            if (reg.installing?.state === "installed" && navigator.serviceWorker.controller) {
+                                setUpdateAvailable(true);
+                            }
+                        });
+                    }
+                });
             });
 
             // Monitor online status
