@@ -9,28 +9,65 @@ export interface TezosBalanceBreakdown {
     unstaked: number;
 }
 
+export interface TezosAccountData {
+    balance: number;
+    stakedBalance: number;
+    unstakedBalance: number;
+    delegatedTo?: {
+        address: string;
+        alias?: string;
+    };
+    delegate?: {
+        address: string;
+        alias?: string;
+    };
+    counter: number;
+    type: string;
+}
+
+/**
+ * Consolidated account data fetching - gets all account info in one API call
+ * This replaces separate calls for balance breakdown and delegation status
+ */
+export async function fetchTezosAccountData(address: string): Promise<TezosAccountData | null> {
+    try {
+        const response = await rateLimitedTzKTFetch(`https://api.tzkt.io/v1/accounts/${address}`);
+        if (!response.ok) return null;
+        const data = await response.json();
+
+        return {
+            balance: data.balance || 0,
+            stakedBalance: data.stakedBalance || 0,
+            unstakedBalance: data.unstakedBalance || 0,
+            delegatedTo: data.delegate,
+            delegate: data.delegate,
+            counter: data.counter || 0,
+            type: data.type || "user",
+        };
+    } catch (error) {
+        console.error("[Tezos] Error fetching account data:", error);
+        return null;
+    }
+}
+
 export async function fetchTezosBalance(address: string): Promise<number> {
     try {
-        const response = await rateLimitedTzKTFetch(`https://api.tzkt.io/v1/accounts/${address}/balance`);
-        if (!response.ok) return 0;
-        const data = await response.json();
-        const balance = data / 1_000_000; // Convert from mutez to XTZ
-        return balance;
+        const accountData = await fetchTezosAccountData(address);
+        return accountData ? accountData.balance / 1_000_000 : 0;
     } catch (error) {
-        console.error("[v0] Error fetching Tezos balance:", error);
+        console.error("[Tezos] Error fetching balance:", error);
         return 0;
     }
 }
 
 export async function fetchTezosBalanceBreakdown(address: string): Promise<TezosBalanceBreakdown> {
     try {
-        const response = await rateLimitedTzKTFetch(`https://api.tzkt.io/v1/accounts/${address}`);
-        if (!response.ok) return { total: 0, spendable: 0, staked: 0, unstaked: 0 };
-        const data = await response.json();
+        const accountData = await fetchTezosAccountData(address);
+        if (!accountData) return { total: 0, spendable: 0, staked: 0, unstaked: 0 };
 
-        const total = (data.balance || 0) / 1_000_000;
-        const staked = (data.stakedBalance || 0) / 1_000_000;
-        const unstaked = (data.unstakedBalance || 0) / 1_000_000;
+        const total = accountData.balance / 1_000_000;
+        const staked = accountData.stakedBalance / 1_000_000;
+        const unstaked = accountData.unstakedBalance / 1_000_000;
         const spendable = total - staked - unstaked;
 
         return { total, spendable, staked, unstaked };
@@ -141,26 +178,25 @@ export async function fetchTezosTokens(address: string): Promise<TokenBalance[]>
 
 export async function fetchDelegationStatus(address: string) {
     try {
-        const response = await rateLimitedTzKTFetch(`https://api.tzkt.io/v1/accounts/${address}`);
-        if (!response.ok) return { status: "undelegated" as const };
-        const data = await response.json();
+        const accountData = await fetchTezosAccountData(address);
+        if (!accountData) return { status: "undelegated" as const };
 
-        if (data.stakedBalance && data.stakedBalance > 0) {
+        if (accountData.stakedBalance && accountData.stakedBalance > 0) {
             return {
                 status: "staked" as const,
-                delegatedTo: data.delegate?.address,
-                stakedAmount: data.stakedBalance / 1_000_000,
+                delegatedTo: accountData.delegate?.address,
+                stakedAmount: accountData.stakedBalance / 1_000_000,
             };
-        } else if (data.delegate) {
+        } else if (accountData.delegate) {
             return {
                 status: "delegated" as const,
-                delegatedTo: data.delegate.address,
+                delegatedTo: accountData.delegate.address,
             };
+        } else {
+            return { status: "undelegated" as const };
         }
-
-        return { status: "undelegated" as const };
     } catch (error) {
-        console.error("[v0] Error fetching delegation status:", error);
+        console.error("[Tezos] Error fetching delegation status:", error);
         return { status: "undelegated" as const };
     }
 }
@@ -320,30 +356,90 @@ export async function fetchDelegationDetails(address: string): Promise<Delegatio
 }
 export async function fetchTezosHistory(address: string, days = 30) {
     try {
-        // Calculate approximate number of blocks in the time range (30 seconds per block)
-        const totalSeconds = days * 24 * 60 * 60;
-        const estimatedBlocks = Math.floor(totalSeconds / 30);
-        // Aim for ~100-200 data points max
-        const step = Math.max(1, Math.floor(estimatedBlocks / 150));
+        // Check localStorage first for historical data (immutable)
+        const cacheKey = `tezos_history_${address}_${days}`;
+        const cached = localStorage.getItem(cacheKey);
+        const cacheExpiry = 24 * 60 * 60 * 1000; // 24 hours for historical data
 
-        // Use balance_history endpoint with quote parameter to get USD and EUR prices in ONE call
-        const response = await rateLimitedTzKTFetch(
-            `https://api.tzkt.io/v1/accounts/${address}/balance_history?step=${step}&quote=usd,eur&limit=1000`
-        );
+        if (cached) {
+            const { data, timestamp } = JSON.parse(cached);
+            if (Date.now() - timestamp < cacheExpiry) {
+                return data;
+            }
+        }
+
+        // For longer periods, use daily statistics for better performance
+        const useDailyStats = days > 7;
+        let response: Response;
+
+        if (useDailyStats) {
+            // Use daily balance statistics - much more efficient for long periods
+            const fromDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+            response = await rateLimitedTzKTFetch(
+                `https://api.tzkt.io/v1/statistics/daily?address=${address}&from=${fromDate}&quote=usd,eur&limit=365`
+            );
+        } else {
+            // Use balance_history for shorter periods with optimized step
+            const totalSeconds = days * 24 * 60 * 60;
+            const estimatedBlocks = Math.floor(totalSeconds / 30);
+            const step = Math.max(1, Math.floor(estimatedBlocks / 100)); // More conservative step
+
+            response = await rateLimitedTzKTFetch(
+                `https://api.tzkt.io/v1/accounts/${address}/balance_history?step=${step}&quote=usd,eur&limit=500`
+            );
+        }
+
         if (!response.ok) return [];
 
         const data = await response.json();
+        let processedData: Array<{
+            level: number;
+            timestamp: number;
+            balance: number;
+            usdValue?: number;
+            eurValue?: number;
+        }>;
 
-        // Take the last N data points (most recent)
-        const recentData = data.slice(-150); // Limit to 150 most recent points
+        if (useDailyStats) {
+            // Process daily statistics format
+            processedData = data.map(
+                (point: { level: number; date: string; balance: number; quote?: { usd?: number; eur?: number } }) => ({
+                    level: point.level,
+                    timestamp: new Date(point.date).getTime(),
+                    balance: point.balance / 1_000_000, // Convert from mutez to XTZ
+                    usdValue: point.quote?.usd,
+                    eurValue: point.quote?.eur,
+                })
+            );
+        } else {
+            // Process balance_history format
+            const recentData = data.slice(-100); // Limit to 100 most recent points
+            processedData = recentData.map(
+                (point: {
+                    level: number;
+                    timestamp: string;
+                    balance: number;
+                    quote?: { usd?: number; eur?: number };
+                }) => ({
+                    level: point.level,
+                    timestamp: new Date(point.timestamp).getTime(),
+                    balance: point.balance / 1_000_000, // Convert from mutez to XTZ
+                    usdValue: point.quote?.usd,
+                    eurValue: point.quote?.eur,
+                })
+            );
+        }
 
-        return recentData.map((point: any) => ({
-            level: point.level,
-            timestamp: new Date(point.timestamp).getTime(),
-            balance: point.balance / 1_000_000, // Convert from mutez to XTZ
-            usdValue: point.quote?.usd,
-            eurValue: point.quote?.eur,
-        }));
+        // Cache the processed data in localStorage
+        localStorage.setItem(
+            cacheKey,
+            JSON.stringify({
+                data: processedData,
+                timestamp: Date.now(),
+            })
+        );
+
+        return processedData;
     } catch (error) {
         console.error("[Tezos] Error fetching balance history:", error);
         return [];
@@ -358,15 +454,25 @@ export async function fetchTezosOperations(address: string, limit = 20) {
         if (!response.ok) return [];
         const data = await response.json();
 
-        return data.map((op: any) => ({
-            type: op.type,
-            hash: op.hash,
-            timestamp: new Date(op.timestamp).getTime(),
-            amount: op.amount ? op.amount / 1_000_000 : 0,
-            sender: op.sender?.address,
-            target: op.target?.address,
-            status: op.status,
-        }));
+        return data.map(
+            (op: {
+                type: string;
+                hash: string;
+                timestamp: string;
+                amount?: number;
+                sender?: { address: string };
+                target?: { address: string };
+                status: string;
+            }) => ({
+                type: op.type,
+                hash: op.hash,
+                timestamp: new Date(op.timestamp).getTime(),
+                amount: op.amount ? op.amount / 1_000_000 : 0,
+                sender: op.sender?.address,
+                target: op.target?.address,
+                status: op.status,
+            })
+        );
     } catch (error) {
         console.error("[v0] Error fetching Tezos operations:", error);
         return [];

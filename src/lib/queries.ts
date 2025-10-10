@@ -9,6 +9,7 @@ import {
     fetchTezosHistory,
     fetchTezosOperations,
     fetchWalletRewards,
+    fetchTezosAccountData,
     type TezosBalanceBreakdown,
 } from "./blockchain/tezos";
 import {
@@ -67,16 +68,16 @@ export const tezosQueries = {
         queryOptions({
             queryKey: queryKeys.tezos.history(address, days),
             queryFn: () => fetchTezosHistory(address, days),
-            staleTime: 5 * 60 * 1000, // 5 minutes for historical data
-            gcTime: 15 * 60 * 1000,
+            staleTime: 24 * 60 * 60 * 1000, // 24 hours - historical data is immutable
+            gcTime: 7 * 24 * 60 * 60 * 1000, // 7 days - keep historical data longer
         }),
 
     operations: (address: string, limit: number = 20) =>
         queryOptions({
             queryKey: queryKeys.tezos.operations(address, limit),
             queryFn: () => fetchTezosOperations(address, limit),
-            staleTime: 30 * 1000, // 30 seconds
-            gcTime: 5 * 60 * 1000,
+            staleTime: 2 * 60 * 1000, // 2 minutes - operations rarely change
+            gcTime: 30 * 60 * 1000, // 30 minutes
         }),
 
     rewards: (address: string) =>
@@ -118,8 +119,8 @@ export const etherlinkQueries = {
         queryOptions({
             queryKey: queryKeys.etherlink.history(address, days),
             queryFn: () => fetchEtherlinkHistory(address, days),
-            staleTime: 5 * 60 * 1000, // 5 minutes
-            gcTime: 15 * 60 * 1000,
+            staleTime: 24 * 60 * 60 * 1000, // 24 hours - historical data is immutable
+            gcTime: 7 * 24 * 60 * 60 * 1000, // 7 days - keep historical data longer
         }),
 
     counters: (address: string) =>
@@ -149,20 +150,61 @@ export const walletQueries = {
         queryOptions({
             queryKey: ["wallet", "tezos", address],
             queryFn: async () => {
-                // Fetch all Tezos wallet data in parallel
-                const [breakdown, delegation, tokens, delegationDetails, prices, tezDomain] = await Promise.all([
-                    fetchTezosBalanceBreakdown(address).catch(() => ({
-                        total: 0,
-                        spendable: 0,
-                        staked: 0,
-                        unstaked: 0,
-                    })),
-                    fetchDelegationStatus(address).catch(() => ({ status: "undelegated" as const })),
+                // Use consolidated account data fetching to reduce API calls
+                const [accountData, tokens, prices, tezDomain] = await Promise.all([
+                    fetchTezosAccountData(address).catch(() => null),
                     fetchTezosTokens(address).catch(() => []),
-                    fetchDelegationDetails(address).catch(() => null),
                     getAllPrices("XTZ").catch(() => ({ usd: null, eur: null, timestamp: Date.now() })),
                     fetchTezDomain(address).catch(() => null),
                 ]);
+
+                if (!accountData) {
+                    return {
+                        address,
+                        breakdown: { total: 0, spendable: 0, staked: 0, unstaked: 0 },
+                        delegation: { status: "undelegated" as const },
+                        tokens: [],
+                        delegationDetails: null,
+                        prices,
+                        tezDomain: null,
+                        usdValue: undefined,
+                        eurValue: undefined,
+                    };
+                }
+
+                // Derive breakdown from account data
+                const total = accountData.balance / 1_000_000;
+                const staked = accountData.stakedBalance / 1_000_000;
+                const unstaked = accountData.unstakedBalance / 1_000_000;
+                const spendable = total - staked - unstaked;
+                const breakdown = { total, spendable, staked, unstaked };
+
+                // Derive delegation status from account data
+                let delegation: {
+                    status: "staked" | "delegated" | "undelegated";
+                    delegatedTo?: string;
+                    stakedAmount?: number;
+                };
+                if (accountData.stakedBalance && accountData.stakedBalance > 0) {
+                    delegation = {
+                        status: "staked" as const,
+                        delegatedTo: accountData.delegate?.address,
+                        stakedAmount: staked,
+                    };
+                } else if (accountData.delegate) {
+                    delegation = {
+                        status: "delegated" as const,
+                        delegatedTo: accountData.delegate.address,
+                    };
+                } else {
+                    delegation = { status: "undelegated" as const };
+                }
+
+                // Fetch delegation details only if delegated/staked
+                let delegationDetails = null;
+                if (delegation.status !== "undelegated" && delegation.delegatedTo) {
+                    delegationDetails = await fetchDelegationDetails(delegation.delegatedTo).catch(() => null);
+                }
 
                 return {
                     address,

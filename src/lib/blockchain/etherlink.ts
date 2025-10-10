@@ -169,6 +169,18 @@ export async function fetchEtherlinkTransactions(address: string): Promise<Trans
 
 export async function fetchEtherlinkHistory(address: string, days = 30) {
     try {
+        // Check localStorage first for historical data (immutable)
+        const cacheKey = `etherlink_history_${address}_${days}`;
+        const cached = localStorage.getItem(cacheKey);
+        const cacheExpiry = 24 * 60 * 60 * 1000; // 24 hours for historical data
+
+        if (cached) {
+            const { data, timestamp } = JSON.parse(cached);
+            if (Date.now() - timestamp < cacheExpiry) {
+                return data;
+            }
+        }
+
         // Use end of yesterday to avoid incomplete current day data
         const now = new Date();
         now.setHours(0, 0, 0, 0); // Start of today
@@ -204,11 +216,21 @@ export async function fetchEtherlinkHistory(address: string, days = 30) {
             .reverse(); // Oldest first
 
         // Remove trailing zeros (incomplete current day data)
-        while (history.length > 0 && history[history.length - 1].balance === 0) {
-            history.pop();
+        const cleanedHistory = [...history];
+        while (cleanedHistory.length > 0 && cleanedHistory[cleanedHistory.length - 1].balance === 0) {
+            cleanedHistory.pop();
         }
 
-        return history;
+        // Cache the processed data in localStorage
+        localStorage.setItem(
+            cacheKey,
+            JSON.stringify({
+                data: cleanedHistory,
+                timestamp: Date.now(),
+            })
+        );
+
+        return cleanedHistory;
     } catch (error) {
         console.error("[Etherlink] Error fetching balance history:", error);
         return [];
